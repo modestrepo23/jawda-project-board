@@ -70,6 +70,15 @@ header .grow{flex:1}
 #filters input[type=search]{min-width:200px;flex:1;max-width:320px}
 .chip{padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:500;color:var(--muted)}
 .chip.on{background:var(--crater);border-color:var(--crater);color:var(--pearl)}
+#fToggle{display:none;position:relative}
+#fToggle .badge{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--umber);color:#fff;font-size:11px;margin-left:6px;padding:0 5px}
+#fPanel{display:contents}
+#ddMobile:empty{display:none}
+#ddMobile{padding:4px 6px 8px;border-bottom:1px solid var(--line);margin-bottom:6px;display:flex;flex-direction:column;gap:8px}
+#ddMobile .me{color:var(--muted);justify-content:space-between}
+#ddMobile .me select{color:var(--ink);background:var(--pearl);padding:6px 8px;border-radius:7px;max-width:none}
+#ddMobile .hbtn{justify-content:center;background:var(--crater);color:var(--pearl);border:0}
+#ddMobile .hbtn .lbl,#ddMobile .me span{display:inline} #ddMobile .hbtn .lbl-m{display:none}
 #filters .count{margin-left:auto;color:var(--muted);font-size:13px}
 
 /* ---------- shared bits ---------- */
@@ -200,21 +209,42 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 
 /* ---------- mobile ---------- */
 @media (max-width:860px){
-  header{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px}
+  header{height:54px;padding:0 12px;gap:8px}
   header .brand .logo{height:22px}
-  .tabs{order:10;width:100%;margin:0}
-  .tabs button{flex:1;text-align:center}
+  header .brand span{display:none}
+  .tabs{flex:1;margin:0;max-width:260px}
+  .tabs button{flex:1;text-align:center;padding:6px 8px;font-size:13px}
+  header .grow{display:none}
   .hbtn .lbl{display:none} .lbl-m{display:inline}
-  .me span{display:none}
-  .cols{grid-template-columns:minmax(0,1fr) 36px 110px;gap:6px}
-  .cols .c-start,.cols .c-due,.cols .c-end,.cols.head .c-ass{display:none}
-  .trow .tt{flex-wrap:wrap}
-  .pname .t,.trow .tt .t{white-space:normal} .pname .prog{display:none}
-  #filters select,#filters input{max-width:100%}
-  #board{grid-auto-columns:86vw;height:calc(100vh - 150px)}
+  #btnNewTask{padding:8px 12px}
+  .menu .dd{min-width:240px;max-width:calc(100vw - 24px)}
+  /* filters: one row + slide-down panel */
+  #filters{flex-wrap:nowrap;position:sticky;top:54px;z-index:19;padding:10px 12px;gap:8px}
+  #filters input[type=search]{flex:1;min-width:0;max-width:none}
+  #fToggle{display:inline-flex;align-items:center;flex:none}
+  #fPanel{display:none;position:absolute;left:0;right:0;top:100%;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow);padding:12px;gap:8px;flex-wrap:wrap}
+  #filters.open #fPanel{display:flex}
+  #fPanel select{flex:1 1 100%;width:100%;max-width:none;min-width:0}
+  #filters .count{display:block;flex:1 1 100%;margin:4px 0 0;text-align:right}
+  /* project / task rows */
+  .cols{display:flex;flex-wrap:wrap;gap:6px 10px;padding:10px 12px}
+  .cols.head{display:none}
+  .cols>*{flex:none}
+  .pname,.trow .tt{flex:1 1 100%;min-width:0}
+  .pname .t,.trow .tt .t{white-space:normal}
+  .pname .prog{margin-left:auto}
+  .pedit{opacity:1}
+  .trow{padding-left:12px}
+  .trow .grip{margin-left:0}
+  .cols .c-start,.cols .c-end{display:none}
+  .cols .c-due{margin-left:auto}
+  .cols .c-due .date::before{content:"Due ";color:var(--muted);font-weight:400}
+  .trow select.inline{padding:0}
+  .quick{padding-left:16px}
+  main{padding:12px 12px 80px}
+  #board{grid-auto-columns:86vw;height:calc(100vh - 54px - 56px);padding:12px}
   .drawer{width:100%}
   .grid3{grid-template-columns:1fr}
-  #filters .count{display:none}
 }
 </style>
 </head>
@@ -240,12 +270,13 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
       <button id="tabKanban" data-view="kanban">Kanban</button>
     </div>
     <div class="grow"></div>
-    <div class="me"><span>You are</span><select id="meSel"></select></div>
+    <div class="me" id="meBox"><span>You are</span><select id="meSel"></select></div>
     <button class="hbtn primary" id="btnNewTask">+ <span class="lbl">New task</span><span class="lbl-m">Task</span></button>
     <button class="hbtn ghost" id="btnNewProject">+ <span class="lbl">New project</span><span class="lbl-m">Project</span></button>
     <div class="menu" id="dataMenu">
       <button class="hbtn ghost" id="btnData">⋯</button>
       <div class="dd">
+        <div id="ddMobile"></div>
         <button id="actRefresh">Refresh</button>
         <hr>
         <button id="actCsv">Export tasks to CSV</button>
@@ -258,6 +289,8 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 
   <div id="filters">
     <input type="search" id="fSearch" placeholder="Search tasks or projects…">
+    <button class="chip" id="fToggle">Filters<span class="badge hidden" id="fBadge"></span></button>
+    <div id="fPanel">
     <select id="fPerson"><option value="">Everyone</option></select>
     <select id="fGroup"><option value="">All groups</option></select>
     <select id="fProject"><option value="">All projects</option></select>
@@ -266,6 +299,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
     <button class="chip on" id="fHideClosed">Hide closed</button>
     <button class="chip" id="fExpand" title="Expand or collapse every project">Expand all</button>
     <span class="count" id="fCount"></span>
+    </div>
   </div>
 
   <main id="viewProjects"></main>
@@ -507,7 +541,7 @@ function restoreFilterUI(){
   $('fMine').classList.toggle('on',S.f.mine); $('fOverdue').classList.toggle('on',S.f.overdue); $('fHideClosed').classList.toggle('on',S.f.hideClosed);
 }
 function render(){
-  saveFilters();
+  saveFilters(); updateBadge();
   $('viewProjects').classList.toggle('hidden',S.view!=='projects');
   $('viewKanban').classList.toggle('hidden',S.view!=='kanban');
   $('fExpand').classList.toggle('hidden', S.view!=='projects');
@@ -643,12 +677,18 @@ function setView(v){ S.view=v; localStorage.setItem('jb.view',v); $('tabProjects
 $('tabProjects').onclick=()=>setView('projects'); $('tabKanban').onclick=()=>setView('kanban');
 $('meSel').onchange=e=>{ S.me=e.target.value; localStorage.setItem('jb.me',S.me); render(); };
 $('btnNewTask').onclick=()=>openTask(null);
-$('btnNewProject').onclick=()=>openProject(null);
+$('btnNewProject').onclick=()=>{ $('dataMenu').classList.remove('open'); openProject(null); };
 $('btnData').onclick=e=>{ e.stopPropagation(); $('dataMenu').classList.toggle('open'); };
 $('actRefresh').onclick=async()=>{ await load(); rebuildProjectSelects(); render(); toast('Refreshed'); };
 $('actCsv').onclick=exportCsv; $('actJson').onclick=exportJson;
 
 /* ---------- filters ---------- */
+$('fToggle').onclick=e=>{ e.stopPropagation(); $('filters').classList.toggle('open'); };
+document.addEventListener('click',e=>{ if(!e.target.closest('#filters')) $('filters').classList.remove('open'); });
+function updateBadge(){ const f=S.f; const n=[f.person,f.group,f.project].filter(Boolean).length+(f.mine?1:0)+(f.overdue?1:0)+(f.hideClosed?0:1); $('fBadge').textContent=n; $('fBadge').classList.toggle('hidden',!n); }
+const mq=matchMedia('(max-width:860px)');
+function placeMobileControls(){ const dd=$('ddMobile'), hdr=document.querySelector('header'); if(mq.matches){ dd.append($('meBox'),$('btnNewProject')); } else { hdr.insertBefore($('meBox'),$('btnNewTask')); hdr.insertBefore($('btnNewProject'),$('dataMenu')); } }
+mq.addEventListener('change',placeMobileControls); placeMobileControls();
 $('fSearch').oninput=e=>{S.f.q=e.target.value.trim();render();};
 $('fPerson').onchange=e=>{S.f.person=e.target.value;render();};
 $('fGroup').onchange=e=>{S.f.group=e.target.value;render();};
