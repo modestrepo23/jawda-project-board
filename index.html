@@ -86,7 +86,7 @@ header .grow{flex:1}
 .prio{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
 .prio.high{color:var(--umber)} .prio.low{color:var(--eagle)}
 .empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:14px}
-.empty .wordmark{font-size:34px;color:var(--eagle);display:block;margin-bottom:6px}
+.empty .logo{height:34px;width:auto;display:block;margin:0 auto 10px;opacity:.3}
 
 /* ---------- projects view ---------- */
 main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
@@ -356,7 +356,8 @@ const S = {
   me: localStorage.getItem('jb.me') || '',
   open: new Set(JSON.parse(localStorage.getItem('jb.open')||'[]')),
   closedGroups: new Set(JSON.parse(localStorage.getItem('jb.closedGroups')||'[]')),
-  f:{ q:'', person:'', group:'', project:'', mine:false, overdue:false, hideClosed:true },
+  closed: new Set(),   // projects explicitly collapsed while a filter is forcing them open
+  f:Object.assign({ q:'', person:'', group:'', project:'', mine:false, overdue:false, hideClosed:true }, JSON.parse(localStorage.getItem('jb.filters')||'{}')),
   editingTask:null, editingProject:null,
 };
 const $ = (id)=>document.getElementById(id);
@@ -392,6 +393,7 @@ async function enter(){
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   buildStatic();
+  restoreFilterUI();
   render();
 }
 
@@ -495,7 +497,15 @@ function anyFilter(){ const f=S.f; return !!(f.q||f.person||f.group||f.project||
 /* ============================================================
    RENDER
    ============================================================ */
+function saveFilters(){ localStorage.setItem('jb.filters',JSON.stringify(S.f)); }
+function restoreFilterUI(){
+  $('fSearch').value=S.f.q; $('fPerson').value=S.f.person; $('fGroup').value=S.f.group; $('fProject').value=S.f.project;
+  if($('fProject').value!==S.f.project){ S.f.project=''; }   // project no longer exists
+  if(S.f.mine && !S.me) S.f.mine=false;                        // "My tasks" needs a person on this device
+  $('fMine').classList.toggle('on',S.f.mine); $('fOverdue').classList.toggle('on',S.f.overdue); $('fHideClosed').classList.toggle('on',S.f.hideClosed);
+}
 function render(){
+  saveFilters();
   $('viewProjects').classList.toggle('hidden',S.view!=='projects');
   $('viewKanban').classList.toggle('hidden',S.view!=='kanban');
   $('fExpand').classList.toggle('hidden', S.view!=='projects');
@@ -537,7 +547,7 @@ function renderProjects(){
       const done = all.filter(t=>t.status==='done').length;
       const pct = all.length? Math.round(done/all.length*100):0;
       const ps = projectStatus(p);
-      const isOpen = S.open.has(p.id) || (filtering && vis.length);
+      const isOpen = S.open.has(p.id) || (filtering && vis.length && !S.closed.has(p.id));
       const dueMax = all.filter(t=>t.status!=='done'&&t.due_date).map(t=>t.due_date).sort()[0];
       return `<div class="prow ${isOpen?'open':''} ${ps}" data-pid="${p.id}">
         <div class="cols" data-toggle="${p.id}">
@@ -570,7 +580,7 @@ function renderProjects(){
       <div class="group-body">${rows ? `<div class="ptable"><div class="cols head"><div>Name</div><div class="c-ass">Assignee</div><div>Status</div><div class="c-start">Start</div><div class="c-end">End</div><div class="c-due">Due</div></div>${rows}</div>` : `<div class="group-empty">No projects in this group yet.</div>`}</div>
     </section>`;
   }
-  host.innerHTML = html || `<div class="empty"><span class="wordmark">jawda</span>Nothing matches these filters.</div>`;
+  host.innerHTML = html || `<div class="empty"><img class="logo" src="logo-crater.png" alt="Jawda">Nothing matches these filters.</div>`;
 }
 
 /* ---------- kanban ---------- */
@@ -600,7 +610,9 @@ document.addEventListener('click', e=>{
   const gt=t.closest('[data-gtoggle]'); if(gt && !t.closest('[data-newp]')){ const c=gt.dataset.gtoggle; S.closedGroups.has(c)?S.closedGroups.delete(c):S.closedGroups.add(c); localStorage.setItem('jb.closedGroups',JSON.stringify([...S.closedGroups])); render(); return; }
   const np=t.closest('[data-newp]'); if(np){ openProject(null,np.dataset.newp); return; }
   const ep=t.closest('[data-editp]'); if(ep){ e.stopPropagation(); openProject(ep.dataset.editp); return; }
-  const tg=t.closest('[data-toggle]'); if(tg && !t.closest('select,button,input')){ const id=tg.dataset.toggle; S.open.has(id)?S.open.delete(id):S.open.add(id); localStorage.setItem('jb.open',JSON.stringify([...S.open])); render(); return; }
+  const tg=t.closest('[data-toggle]'); if(tg && !t.closest('select,button,input')){ const id=tg.dataset.toggle; const row=tg.closest('.prow'); const isOpen=row.classList.contains('open');
+    if(isOpen){ S.open.delete(id); S.closed.add(id); } else { S.open.add(id); S.closed.delete(id); }
+    localStorage.setItem('jb.open',JSON.stringify([...S.open])); render(); return; }
   const tr=t.closest('[data-tid]'); if(tr && !t.closest('select,input,.grip')){ openTask(tr.dataset.tid); return; }
   const nt=t.closest('[data-newt]'); if(nt){ openTask(null,{status:nt.dataset.newt}); return; }
   if(!t.closest('#dataMenu')) $('dataMenu').classList.remove('open');
@@ -641,7 +653,7 @@ $('fGroup').onchange=e=>{S.f.group=e.target.value;render();};
 $('fProject').onchange=e=>{S.f.project=e.target.value;render();};
 $('fExpand').onclick=()=>{
   const shown=[...document.querySelectorAll('.prow')]; const allOpen=shown.length && shown.every(r=>r.classList.contains('open'));
-  if(allOpen){ S.open.clear(); } else { S.closedGroups.clear(); shown.forEach(r=>S.open.add(r.dataset.pid)); }
+  if(allOpen){ S.open.clear(); shown.forEach(r=>S.closed.add(r.dataset.pid)); } else { S.closedGroups.clear(); S.closed.clear(); shown.forEach(r=>S.open.add(r.dataset.pid)); }
   localStorage.setItem('jb.open',JSON.stringify([...S.open])); localStorage.setItem('jb.closedGroups',JSON.stringify([...S.closedGroups])); render();
 };
 for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideClosed','hideClosed']]){
