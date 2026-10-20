@@ -17,7 +17,7 @@
   --bg:#EFE9DF; --panel:#F7F3EC; --line:#D9D0C1; --ink:#2B1A1E; --muted:#7A6F63;
   --radius:12px; --shadow:0 1px 2px rgba(64,29,36,.06),0 6px 18px rgba(64,29,36,.07);
   --font:'Jost',system-ui,sans-serif; --serif:'Playfair Display',Georgia,serif;
-  --st-todo:#A8A68B; --st-prog:#8A3324; --st-wait:#B5884A; --st-done:#5E6248;
+  --st-todo:#A8A68B; --st-prog:#8A3324; --st-wait:#B5884A; --st-done:#5E6248; --st-stuck:#2B1A1E;
 }
 *{box-sizing:border-box} html,body{margin:0;height:100%}
 body{font:15px/1.45 var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
@@ -30,19 +30,19 @@ a{color:inherit}
 
 /* ---------- login ---------- */
 #login{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--crater);color:var(--pearl)}
-#login .card{width:min(420px,100%);text-align:center}
-#login h1{font:italic 500 56px/1 var(--serif);margin:0 0 6px;letter-spacing:-.02em}
-#login p{color:var(--eagle);margin:0 0 28px;letter-spacing:.14em;font-size:12px;text-transform:uppercase}
-#login input{width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(229,221,208,.25);background:rgba(229,221,208,.08);color:var(--pearl);outline:0;font-size:16px}
-#login input:focus{border-color:var(--pearl)}
+#login .card{width:min(420px,100%);text-align:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:36px 28px 24px;box-shadow:var(--shadow);cursor:default}
+#login .logo{height:60px;width:auto;display:block;margin:0 auto 10px}
+#login p{color:var(--ash);margin:0 0 26px;letter-spacing:.16em;font-size:11px;text-transform:uppercase}
+#login input{width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--line);background:var(--storm);color:var(--ink);outline:0;font-size:16px}
+#login input:focus{border-color:var(--ash)}
 #login button{width:100%;margin-top:12px;padding:14px;border-radius:10px;background:var(--umber);color:#fff;font-weight:500}
-#login .err{color:#E8A28C;margin-top:12px;font-size:14px;min-height:20px}
+#login .err{color:var(--umber);margin-top:12px;font-size:14px;min-height:20px}
 
 /* ---------- header ---------- */
 #app{min-height:100%;display:flex;flex-direction:column}
 header{position:sticky;top:0;z-index:20;background:var(--crater);color:var(--pearl);padding:0 clamp(12px,3vw,32px);display:flex;align-items:center;gap:14px;height:60px}
-header .brand{display:flex;align-items:baseline;gap:10px}
-header .brand .wordmark{font-size:28px}
+header .brand{display:flex;align-items:center;gap:10px}
+header .brand .logo{height:26px;width:auto;display:block}
 header .brand span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--eagle)}
 .tabs{display:flex;background:rgba(229,221,208,.1);border-radius:999px;padding:3px;margin-left:8px}
 .tabs button{padding:6px 16px;border-radius:999px;color:var(--eagle);font-weight:500;font-size:14px}
@@ -79,7 +79,7 @@ header .grow{flex:1}
 .gpill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.02em;color:#fff;white-space:nowrap}
 .spill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#fff;white-space:nowrap}
 .spill::before{content:"";width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.75)}
-.spill.todo{background:var(--st-todo)} .spill.in_progress{background:var(--st-prog)} .spill.awaiting_approval{background:var(--st-wait)} .spill.done{background:var(--st-done)}
+.spill.todo{background:var(--st-todo)} .spill.in_progress{background:var(--st-prog)} .spill.awaiting_approval{background:var(--st-wait)} .spill.done{background:var(--st-done)} .spill.stuck{background:var(--st-stuck)}
 .date{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
 .date.over{color:var(--umber);font-weight:600}
 .date.soon{color:#B5884A;font-weight:500}
@@ -114,7 +114,11 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .prog .bar{width:56px;height:5px;background:var(--pearl);border-radius:3px;overflow:hidden;display:inline-block}
 .prog .bar i{display:block;height:100%;background:var(--st-done)}
 .ppill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.ppill.on_hold{color:#B5884A;border-color:#B5884A} .ppill.done{color:var(--st-done);border-color:var(--st-done)}
+.ppill.on_hold{color:#B5884A;border-color:#B5884A} .ppill.done{color:#fff;background:var(--st-done);border-color:var(--st-done)} .ppill.in_progress{color:var(--umber);border-color:var(--umber)} .ppill.closed{color:#fff;background:var(--muted);border-color:var(--muted)}
+.prow.closed .pname .t{color:var(--muted)}
+.pedit{padding:3px 9px;font-size:12px;opacity:0;transition:.15s;flex:none}
+.prow>.cols:hover .pedit{opacity:1}
+@media (hover:none){.pedit{opacity:1}}
 .tasks{display:none;background:#fff;border-top:1px solid var(--line)}
 .prow.open .tasks{display:block}
 .trow{border-top:1px solid #EEE8DD;cursor:pointer;padding-left:30px}
@@ -125,6 +129,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .trow .tt .dot.in_progress{border-color:var(--st-prog);background:radial-gradient(circle,var(--st-prog) 40%,transparent 44%)}
 .trow .tt .dot.awaiting_approval{border-color:var(--st-wait);background:radial-gradient(circle,var(--st-wait) 40%,transparent 44%)}
 .trow .tt .dot.done{border-color:var(--st-done);background:var(--st-done)}
+.trow .tt .dot.stuck{border-color:var(--st-stuck);background:var(--st-stuck)}
 .trow .tt .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trow .tt .t.done{color:var(--muted);text-decoration:line-through}
 .trow select.inline{border:0;background:transparent;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 0;outline:0;cursor:pointer;color:var(--muted)}
@@ -188,7 +193,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 /* ---------- mobile ---------- */
 @media (max-width:860px){
   header{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px}
-  header .brand .wordmark{font-size:24px}
+  header .brand .logo{height:22px}
   .tabs{order:10;width:100%;margin:0}
   .tabs button{flex:1;text-align:center}
   .hbtn .lbl{display:none} .lbl-m{display:inline}
@@ -210,7 +215,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 <!-- ============ LOGIN ============ -->
 <section id="login">
   <form class="card" id="loginForm" autocomplete="off">
-    <h1>jawda</h1>
+    <img class="logo" src="logo-crater.png" alt="Jawda">
     <p>Company board</p>
     <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
     <button type="submit">Enter</button>
@@ -221,7 +226,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 <!-- ============ APP ============ -->
 <section id="app" class="hidden">
   <header>
-    <div class="brand"><span class="wordmark">jawda</span><span>Board</span></div>
+    <div class="brand"><img class="logo" src="logo-pearl.png" alt="Jawda"><span>Board</span></div>
     <div class="tabs">
       <button id="tabProjects" class="on" data-view="projects">Projects</button>
       <button id="tabKanban" data-view="kanban">Kanban</button>
@@ -250,7 +255,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
     <select id="fProject"><option value="">All projects</option></select>
     <button class="chip" id="fMine">My tasks</button>
     <button class="chip" id="fOverdue">Overdue</button>
-    <button class="chip" id="fHideDone">Hide done</button>
+    <button class="chip on" id="fHideClosed">Hide closed</button>
     <span class="count" id="fCount"></span>
   </div>
 
@@ -273,9 +278,9 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
       <div class="field"><label>Priority</label><select id="tPriority"><option value="low">Low</option><option value="normal" selected>Normal</option><option value="high">High</option></select></div>
     </div>
     <div class="grid3">
-      <div class="field"><label>Start</label><input type="date" id="tStart" readonly><div class="hint">Auto when In Progress</div></div>
-      <div class="field"><label>Due</label><input type="date" id="tDue"></div>
-      <div class="field"><label>End</label><input type="date" id="tEnd" readonly><div class="hint">Auto when Done</div></div>
+      <div class="field"><label>Start</label><input type="date" id="tStart" readonly><div class="hint">Auto: leaves To do</div></div>
+      <div class="field"><label>End</label><input type="date" id="tEnd" readonly><div class="hint">Auto: reaches Done</div></div>
+      <div class="field"><label>Due</label><input type="date" id="tDue"><div class="hint">Set by hand</div></div>
     </div>
     <div class="field"><label>Notes</label><textarea id="tDesc" placeholder="Context, links, checklist…"></textarea></div>
     <div class="act" id="tAct"><h4>Activity</h4><div id="tActList"></div></div>
@@ -294,7 +299,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
         <div class="field"><label>Owner</label><select id="pOwner"></select></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>Status</label><select id="pStatus"><option value="active">Active</option><option value="on_hold">On hold</option><option value="done">Done</option></select></div>
+        <div class="field"><label>Status</label><select id="pStatus"><option value="active">Automatic (from tasks)</option><option value="on_hold">On hold</option><option value="closed">Closed</option></select><div class="hint">Automatic = Not started / In progress / Done</div></div>
         <div class="field"><label>Quarter</label><input id="pQuarter" placeholder="e.g. Q4 2026"></div>
       </div>
       <div class="field"><label>Description / goal</label><textarea id="pDesc"></textarea></div>
@@ -319,9 +324,18 @@ const GROUPS = [
 ].map(([code,name,colour])=>({code,name,colour,label:`${code}. ${name}`}));
 const GROUP = Object.fromEntries(GROUPS.map(g=>[g.code,g]));
 const STATUSES = [
-  ['todo','To do'],['in_progress','In progress'],['awaiting_approval','Awaiting approval'],['done','Done'],
+  ['todo','To do'],['in_progress','In progress'],['awaiting_approval','Awaiting approval'],['done','Done'],['stuck','Stuck'],
 ].map(([k,l])=>({key:k,label:l}));
 const STATUS = Object.fromEntries(STATUSES.map(s=>[s.key,s.label]));
+const PSTATUS = {not_started:'Not started',in_progress:'In progress',done:'Done',on_hold:'On hold',closed:'Closed'};
+// Project status: on_hold / closed are set by hand; otherwise derived from the tasks.
+function projectStatus(p){
+  if(p.status==='on_hold'||p.status==='closed') return p.status;
+  const ts=S.tasks.filter(t=>t.project_id===p.id);
+  if(!ts.length || ts.every(t=>t.status==='todo')) return 'not_started';
+  if(ts.every(t=>t.status==='done')) return 'done';
+  return 'in_progress';
+}
 
 const CFG = window.JAWDA_CONFIG || {};
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
@@ -335,7 +349,7 @@ const S = {
   me: localStorage.getItem('jb.me') || '',
   open: new Set(JSON.parse(localStorage.getItem('jb.open')||'[]')),
   closedGroups: new Set(JSON.parse(localStorage.getItem('jb.closedGroups')||'[]')),
-  f:{ q:'', person:'', group:'', project:'', mine:false, overdue:false, hideDone:false },
+  f:{ q:'', person:'', group:'', project:'', mine:false, overdue:false, hideClosed:true },
   editingTask:null, editingProject:null,
 };
 const $ = (id)=>document.getElementById(id);
@@ -448,11 +462,11 @@ function taskVisible(t){
   if(f.group && p?.group_code!==f.group) return false;
   if(f.project && t.project_id!==f.project) return false;
   if(f.overdue && !(t.due_date && t.due_date<today() && t.status!=='done')) return false;
-  if(f.hideDone && t.status==='done') return false;
+  if(f.hideClosed && p?.status==='closed') return false;
   if(f.q){ const q=f.q.toLowerCase(); if(!(t.title.toLowerCase().includes(q) || (t.description||'').toLowerCase().includes(q) || (p?.name||'').toLowerCase().includes(q))) return false; }
   return true;
 }
-function anyFilter(){ const f=S.f; return !!(f.q||f.person||f.group||f.project||f.mine||f.overdue||f.hideDone); }
+function anyFilter(){ const f=S.f; return !!(f.q||f.person||f.group||f.project||f.mine||f.overdue); }
 
 /* ============================================================
    RENDER
@@ -460,10 +474,10 @@ function anyFilter(){ const f=S.f; return !!(f.q||f.person||f.group||f.project||
 function render(){
   $('viewProjects').classList.toggle('hidden',S.view!=='projects');
   $('viewKanban').classList.toggle('hidden',S.view!=='kanban');
-  $('fHideDone').classList.toggle('hidden', S.view==='kanban');
   if(S.view==='projects') renderProjects(); else renderKanban();
   const vis = S.tasks.filter(taskVisible).length;
-  $('fCount').textContent = anyFilter() ? `${vis} of ${S.tasks.length} tasks` : `${S.tasks.length} tasks · ${S.projects.length} projects`;
+  const openP = S.projects.filter(p=>!(S.f.hideClosed&&p.status==='closed')).length;
+  $('fCount').textContent = anyFilter() ? `${vis} of ${S.tasks.length} tasks` : `${vis} tasks · ${openP} projects`;
 }
 function avatar(id, cls=''){
   const p=person(id);
@@ -486,22 +500,24 @@ function renderProjects(){
     let projs = S.projects.filter(p=>p.group_code===g.code);
     if(S.f.group && S.f.group!==g.code) continue;
     if(S.f.project) projs = projs.filter(p=>p.id===S.f.project);
+    if(S.f.hideClosed) projs = projs.filter(p=>p.status!=='closed');
     const rows = projs.map(p=>{
       const all = S.tasks.filter(t=>t.project_id===p.id);
       const vis = all.filter(taskVisible);
       if(filtering && !vis.length && !(S.f.q && p.name.toLowerCase().includes(S.f.q.toLowerCase()))) return '';
       const done = all.filter(t=>t.status==='done').length;
       const pct = all.length? Math.round(done/all.length*100):0;
+      const ps = projectStatus(p);
       const isOpen = S.open.has(p.id) || (filtering && vis.length);
       const dueMax = all.filter(t=>t.status!=='done'&&t.due_date).map(t=>t.due_date).sort()[0];
-      return `<div class="prow ${isOpen?'open':''}" data-pid="${p.id}">
+      return `<div class="prow ${isOpen?'open':''} ${ps}" data-pid="${p.id}">
         <div class="cols" data-toggle="${p.id}">
-          <div class="pname"><span class="caret">▶</span><span class="t">${esc(p.name)}</span><span class="prog"><span class="bar"><i style="width:${pct}%"></i></span><span>${done}/${all.length}</span></span></div>
+          <div class="pname"><span class="caret">▶</span><span class="t">${esc(p.name)}</span><span class="prog"><span class="bar"><i style="width:${pct}%"></i></span><span>${done}/${all.length}</span></span><button class="chip pedit" data-editp="${p.id}">Edit</button></div>
           <div class="c-ass">${avatar(p.owner_id)}</div>
-          <div><span class="ppill ${p.status}">${p.status==='on_hold'?'On hold':p.status}</span></div>
+          <div><span class="ppill ${ps}">${PSTATUS[ps]}</span></div>
           <div class="c-start"></div>
+          <div class="c-end"></div>
           <div class="c-due">${dateCell(dueMax,true,'x')}</div>
-          <div class="c-end"><button class="chip" data-editp="${p.id}" style="padding:4px 10px">Edit</button></div>
         </div>
         <div class="tasks">
           ${vis.sort((a,b)=>(a.sort_order-b.sort_order)||a.created_at.localeCompare(b.created_at)).map(t=>`
@@ -510,8 +526,8 @@ function renderProjects(){
               <div class="c-ass">${avatar(t.assignee_id,'sm')}</div>
               <div><select class="inline" data-status="${t.id}">${STATUSES.map(s=>opt(s.key,s.label,s.key===t.status)).join('')}</select></div>
               <div class="c-start">${dateCell(t.start_date)}</div>
-              <div class="c-due">${dateCell(t.due_date,true,t.status)}</div>
               <div class="c-end">${dateCell(t.end_date)}</div>
+              <div class="c-due">${dateCell(t.due_date,true,t.status)}</div>
             </div>`).join('')}
           ${!vis.length?'<div class="empty" style="padding:14px;font-size:13px">No tasks yet</div>':''}
           <div class="quick">+ <input placeholder="Add a task and press Enter" data-quick="${p.id}"></div>
@@ -522,7 +538,7 @@ function renderProjects(){
     const closed = S.closedGroups.has(g.code) && !filtering;
     html += `<section class="group ${closed?'closed':''}" data-g="${g.code}">
       <div class="group-h" data-gtoggle="${g.code}"><span class="caret">▼</span><span class="gpill" style="background:${g.colour}">${esc(g.label)}</span><span class="n">${projs.length}</span><button class="add" data-newp="${g.code}">+ Add project</button></div>
-      <div class="group-body">${rows ? `<div class="ptable"><div class="cols head"><div>Name</div><div class="c-ass">Assignee</div><div>Status</div><div class="c-start">Start</div><div class="c-due">Due</div><div class="c-end">End</div></div>${rows}</div>` : `<div class="group-empty">No projects in this group yet.</div>`}</div>
+      <div class="group-body">${rows ? `<div class="ptable"><div class="cols head"><div>Name</div><div class="c-ass">Assignee</div><div>Status</div><div class="c-start">Start</div><div class="c-end">End</div><div class="c-due">Due</div></div>${rows}</div>` : `<div class="group-empty">No projects in this group yet.</div>`}</div>
     </section>`;
   }
   host.innerHTML = html || `<div class="empty"><span class="wordmark">jawda</span>Nothing matches these filters.</div>`;
@@ -594,7 +610,7 @@ $('fSearch').oninput=e=>{S.f.q=e.target.value.trim();render();};
 $('fPerson').onchange=e=>{S.f.person=e.target.value;render();};
 $('fGroup').onchange=e=>{S.f.group=e.target.value;render();};
 $('fProject').onchange=e=>{S.f.project=e.target.value;render();};
-for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideDone','hideDone']]){
+for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideClosed','hideClosed']]){
   $(id).onclick=()=>{ if(key==='mine'&&!S.me){toast('Pick yourself in the top bar first');return;} S.f[key]=!S.f[key]; $(id).classList.toggle('on',S.f[key]); render(); };
 }
 
