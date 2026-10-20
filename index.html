@@ -17,7 +17,7 @@
   --bg:#EFE9DF; --panel:#F7F3EC; --line:#D9D0C1; --ink:#2B1A1E; --muted:#7A6F63;
   --radius:12px; --shadow:0 1px 2px rgba(64,29,36,.06),0 6px 18px rgba(64,29,36,.07);
   --font:'Jost',system-ui,sans-serif; --serif:'Playfair Display',Georgia,serif;
-  --st-todo:#A8A68B; --st-prog:#8A3324; --st-wait:#B5884A; --st-done:#5E6248; --st-stuck:#2B1A1E;
+  --st-todo:#A8A68B; --st-prog:#8A3324; --st-wait:#B5884A; --st-done:#4E7247; --st-stuck:#2B1A1E;
 }
 *{box-sizing:border-box} html,body{margin:0;height:100%}
 body{font:15px/1.45 var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
@@ -99,7 +99,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .group-h:hover .add{opacity:1}
 .group.closed .group-body{display:none}
 .ptable{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-.cols{display:grid;grid-template-columns:minmax(0,1fr) 110px 150px 100px 100px 100px;gap:8px;align-items:center;padding:8px 14px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 100px 175px 96px 96px 96px;gap:8px;align-items:center;padding:8px 14px}
 .cols.head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);background:#fff8}
 .prow{border-bottom:1px solid var(--line)}
 .prow:last-child{border-bottom:0}
@@ -114,7 +114,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .prog .bar{width:56px;height:5px;background:var(--pearl);border-radius:3px;overflow:hidden;display:inline-block}
 .prog .bar i{display:block;height:100%;background:var(--st-done)}
 .ppill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.ppill.on_hold{color:#B5884A;border-color:#B5884A} .ppill.done{color:#fff;background:var(--st-done);border-color:var(--st-done)} .ppill.in_progress{color:var(--umber);border-color:var(--umber)} .ppill.closed{color:#fff;background:var(--muted);border-color:var(--muted)}
+.ppill.not_started{color:var(--ash);border-color:var(--ash)} .ppill.on_hold{color:#B5884A;border-color:#B5884A} .ppill.done{color:#fff;background:var(--st-done);border-color:var(--st-done)} .ppill.in_progress{color:var(--umber);border-color:var(--umber)} .ppill.closed{color:#fff;background:var(--muted);border-color:var(--muted)}
 .prow.closed .pname .t{color:var(--muted)}
 .pedit{padding:3px 9px;font-size:12px;opacity:0;transition:.15s;flex:none}
 .prow>.cols:hover .pedit{opacity:1}
@@ -138,6 +138,8 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .trow .tt .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trow .tt .t.done{color:var(--muted);text-decoration:line-through}
 .trow select.inline{border:0;background:transparent;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 0;outline:0;cursor:pointer;color:var(--muted)}
+.inline.todo{color:var(--ash)} .inline.in_progress{color:var(--umber)} .inline.awaiting_approval{color:var(--st-wait)} .inline.done{color:var(--st-done)} .inline.stuck{color:var(--st-stuck)}
+.inline option{color:var(--ink);text-transform:none;letter-spacing:0}
 .quick{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 44px;border-top:1px solid #EEE8DD;color:var(--muted);font-size:14px}
 .quick input{flex:1;border:0;background:transparent;outline:0;font-size:14px}
 .quick input::placeholder{color:var(--eagle)}
@@ -563,7 +565,7 @@ function renderProjects(){
             <div class="cols trow" data-tid="${t.id}" data-pid="${p.id}" draggable="true">
               <div class="tt"><span class="grip" title="Drag to reorder">⋮⋮</span><span class="dot ${t.status}"></span><span class="t ${t.status==='done'?'done':''}">${esc(t.title)}</span>${t.priority==='high'?'<span class="prio high">High</span>':''}</div>
               <div class="c-ass">${avatar(t.assignee_id,'sm')}</div>
-              <div><select class="inline" data-status="${t.id}">${STATUSES.map(s=>opt(s.key,s.label,s.key===t.status)).join('')}</select></div>
+              <div><select class="inline ${t.status}" data-status="${t.id}">${STATUSES.map(s=>opt(s.key,s.label,s.key===t.status)).join('')}</select></div>
               <div class="c-start">${dateCell(t.start_date)}</div>
               <div class="c-end">${dateCell(t.end_date)}</div>
               <div class="c-due">${dateCell(t.due_date,true,t.status)}</div>
