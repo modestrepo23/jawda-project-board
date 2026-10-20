@@ -126,6 +126,11 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .trow:hover{background:var(--storm)}
 .trow .tt{display:flex;align-items:center;gap:8px;min-width:0}
 .trow .tt .dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--eagle);flex:none}
+.trow .grip{color:var(--eagle);font-size:12px;letter-spacing:-3px;cursor:grab;flex:none;opacity:.5;margin-left:-18px;width:14px}
+.trow:hover .grip{opacity:1}
+.trow.dragging{opacity:.35}
+.trow.drop-above{box-shadow:inset 0 2px 0 var(--umber)}
+.trow.drop-below{box-shadow:inset 0 -2px 0 var(--umber)}
 .trow .tt .dot.in_progress{border-color:var(--st-prog);background:radial-gradient(circle,var(--st-prog) 40%,transparent 44%)}
 .trow .tt .dot.awaiting_approval{border-color:var(--st-wait);background:radial-gradient(circle,var(--st-wait) 40%,transparent 44%)}
 .trow .tt .dot.done{border-color:var(--st-done);background:var(--st-done)}
@@ -256,6 +261,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
     <button class="chip" id="fMine">My tasks</button>
     <button class="chip" id="fOverdue">Overdue</button>
     <button class="chip on" id="fHideClosed">Hide closed</button>
+    <button class="chip" id="fExpand" title="Expand or collapse every project">Expand all</button>
     <span class="count" id="fCount"></span>
   </div>
 
@@ -474,7 +480,12 @@ function anyFilter(){ const f=S.f; return !!(f.q||f.person||f.group||f.project||
 function render(){
   $('viewProjects').classList.toggle('hidden',S.view!=='projects');
   $('viewKanban').classList.toggle('hidden',S.view!=='kanban');
-  if(S.view==='projects') renderProjects(); else renderKanban();
+  $('fExpand').classList.toggle('hidden', S.view!=='projects');
+  if(S.view==='projects'){
+    renderProjects();
+    const shown=[...document.querySelectorAll('.prow')]; const allOpen=shown.length && shown.every(r=>r.classList.contains('open'));
+    $('fExpand').textContent = allOpen ? 'Collapse all' : 'Expand all';
+  } else renderKanban();
   const vis = S.tasks.filter(taskVisible).length;
   const openP = S.projects.filter(p=>!(S.f.hideClosed&&p.status==='closed')).length;
   $('fCount').textContent = anyFilter() ? `${vis} of ${S.tasks.length} tasks` : `${vis} tasks · ${openP} projects`;
@@ -521,8 +532,8 @@ function renderProjects(){
         </div>
         <div class="tasks">
           ${vis.sort((a,b)=>(a.sort_order-b.sort_order)||a.created_at.localeCompare(b.created_at)).map(t=>`
-            <div class="cols trow" data-tid="${t.id}">
-              <div class="tt"><span class="dot ${t.status}"></span><span class="t ${t.status==='done'?'done':''}">${esc(t.title)}</span>${t.priority==='high'?'<span class="prio high">High</span>':''}</div>
+            <div class="cols trow" data-tid="${t.id}" data-pid="${p.id}" draggable="true">
+              <div class="tt"><span class="grip" title="Drag to reorder">⋮⋮</span><span class="dot ${t.status}"></span><span class="t ${t.status==='done'?'done':''}">${esc(t.title)}</span>${t.priority==='high'?'<span class="prio high">High</span>':''}</div>
               <div class="c-ass">${avatar(t.assignee_id,'sm')}</div>
               <div><select class="inline" data-status="${t.id}">${STATUSES.map(s=>opt(s.key,s.label,s.key===t.status)).join('')}</select></div>
               <div class="c-start">${dateCell(t.start_date)}</div>
@@ -572,7 +583,7 @@ document.addEventListener('click', e=>{
   const np=t.closest('[data-newp]'); if(np){ openProject(null,np.dataset.newp); return; }
   const ep=t.closest('[data-editp]'); if(ep){ e.stopPropagation(); openProject(ep.dataset.editp); return; }
   const tg=t.closest('[data-toggle]'); if(tg && !t.closest('select,button,input')){ const id=tg.dataset.toggle; S.open.has(id)?S.open.delete(id):S.open.add(id); localStorage.setItem('jb.open',JSON.stringify([...S.open])); render(); return; }
-  const tr=t.closest('[data-tid]'); if(tr && !t.closest('select,input')){ openTask(tr.dataset.tid); return; }
+  const tr=t.closest('[data-tid]'); if(tr && !t.closest('select,input,.grip')){ openTask(tr.dataset.tid); return; }
   const nt=t.closest('[data-newt]'); if(nt){ openTask(null,{status:nt.dataset.newt}); return; }
   if(!t.closest('#dataMenu')) $('dataMenu').classList.remove('open');
 });
@@ -610,6 +621,11 @@ $('fSearch').oninput=e=>{S.f.q=e.target.value.trim();render();};
 $('fPerson').onchange=e=>{S.f.person=e.target.value;render();};
 $('fGroup').onchange=e=>{S.f.group=e.target.value;render();};
 $('fProject').onchange=e=>{S.f.project=e.target.value;render();};
+$('fExpand').onclick=()=>{
+  const shown=[...document.querySelectorAll('.prow')]; const allOpen=shown.length && shown.every(r=>r.classList.contains('open'));
+  if(allOpen){ S.open.clear(); } else { S.closedGroups.clear(); shown.forEach(r=>S.open.add(r.dataset.pid)); }
+  localStorage.setItem('jb.open',JSON.stringify([...S.open])); localStorage.setItem('jb.closedGroups',JSON.stringify([...S.closedGroups])); render();
+};
 for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideClosed','hideClosed']]){
   $(id).onclick=()=>{ if(key==='mine'&&!S.me){toast('Pick yourself in the top bar first');return;} S.f[key]=!S.f[key]; $(id).classList.toggle('on',S.f[key]); render(); };
 }
@@ -617,11 +633,40 @@ for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideClosed','h
 /* ============================================================
    DRAG & DROP (desktop)
    ============================================================ */
-let dragId=null;
-document.addEventListener('dragstart',e=>{ const c=e.target.closest('.card'); if(!c) return; dragId=c.dataset.tid; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
-document.addEventListener('dragend',e=>{ const c=e.target.closest('.card'); c&&c.classList.remove('dragging'); document.querySelectorAll('.col.over').forEach(x=>x.classList.remove('over')); });
-document.addEventListener('dragover',e=>{ const col=e.target.closest('.col'); if(!col||!dragId) return; e.preventDefault(); document.querySelectorAll('.col.over').forEach(x=>x.classList.remove('over')); col.classList.add('over'); });
-document.addEventListener('drop',async e=>{ const col=e.target.closest('.col'); if(!col||!dragId) return; e.preventDefault(); const task=S.tasks.find(t=>t.id===dragId); dragId=null; await setStatus(task,col.dataset.col); });
+let dragId=null, dragRow=null;
+const clearDropMarks=()=>document.querySelectorAll('.col.over,.trow.drop-above,.trow.drop-below').forEach(x=>x.classList.remove('over','drop-above','drop-below'));
+document.addEventListener('dragstart',e=>{
+  const c=e.target.closest('.card'); const r=e.target.closest('.trow');
+  if(c){ dragId=c.dataset.tid; c.classList.add('dragging'); }
+  else if(r){ dragRow=r.dataset.tid; r.classList.add('dragging'); }
+  else return;
+  e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',''); }catch(_){}
+});
+document.addEventListener('dragend',e=>{ document.querySelectorAll('.dragging').forEach(x=>x.classList.remove('dragging')); clearDropMarks(); dragId=dragRow=null; });
+document.addEventListener('dragover',e=>{
+  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault(); clearDropMarks(); col.classList.add('over'); return; }
+  if(dragRow){ const r=e.target.closest('.trow'); if(!r||r.dataset.tid===dragRow) return;
+    const src=S.tasks.find(t=>t.id===dragRow); if(src.project_id!==r.dataset.pid) return;
+    e.preventDefault(); clearDropMarks(); const half=r.getBoundingClientRect(); r.classList.add(e.clientY < half.top+half.height/2 ? 'drop-above':'drop-below'); }
+});
+document.addEventListener('drop',async e=>{
+  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault(); const task=S.tasks.find(t=>t.id===dragId); dragId=null; await setStatus(task,col.dataset.col); return; }
+  if(dragRow){ const r=e.target.closest('.trow'); if(!r) return; e.preventDefault();
+    const above=r.classList.contains('drop-above'); const id=dragRow; dragRow=null; clearDropMarks();
+    await reorderTask(id, r.dataset.tid, above); }
+});
+async function reorderTask(movedId, targetId, above){
+  const moved=S.tasks.find(t=>t.id===movedId); if(!moved||movedId===targetId) return;
+  const list=S.tasks.filter(t=>t.project_id===moved.project_id && t.id!==movedId)
+    .sort((a,b)=>(a.sort_order-b.sort_order)||a.created_at.localeCompare(b.created_at));
+  let idx=list.findIndex(t=>t.id===targetId); if(idx<0) return; if(!above) idx++;
+  list.splice(idx,0,moved);
+  const updates=list.map((t,i)=>({id:t.id, sort_order:i+1})).filter(u=>S.tasks.find(t=>t.id===u.id).sort_order!==u.sort_order);
+  updates.forEach(u=>{ S.tasks.find(t=>t.id===u.id).sort_order=u.sort_order; });
+  render();
+  const results=await Promise.all(updates.map(u=>sb.from('tasks').update({sort_order:u.sort_order}).eq('id',u.id)));
+  const bad=results.find(r=>r.error); if(bad){ toast('Reorder failed: '+bad.error.message); await load(); render(); }
+}
 
 /* ============================================================
    TASK DRAWER
