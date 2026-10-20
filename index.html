@@ -154,6 +154,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px}
 .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;box-shadow:0 1px 2px rgba(64,29,36,.05)}
 .card:hover{border-color:var(--ash)}
 .card.dragging{opacity:.4}
+.card.drop-above{box-shadow:0 -3px 0 0 var(--umber)} .card.drop-below{box-shadow:0 3px 0 0 var(--umber)}
 .card .proj{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap}
 .card .proj span{overflow:hidden;text-overflow:ellipsis}
 .card .proj i{width:7px;height:7px;border-radius:50%;flex:none}
@@ -423,13 +424,30 @@ async function saveTask(data, id){
   if(i>=0) S.tasks[i]=row; else S.tasks.push(row);
   return row;
 }
+const boardKey = (t)=> t.board_order ?? t.sort_order ?? 0;
+const boardSort = (a,b)=>(boardKey(a)-boardKey(b))||a.created_at.localeCompare(b.created_at);
 async function setStatus(task, status){
   if(task.status===status) return;
   const before = task.status;
-  const maxOrder = Math.max(0,...S.tasks.filter(t=>t.status===status).map(t=>t.sort_order||0));
-  await saveTask({status, sort_order:maxOrder+1}, task.id);
+  const maxOrder = Math.max(0,...S.tasks.filter(t=>t.status===status).map(boardKey));
+  await saveTask({status, board_order:maxOrder+1}, task.id);
   logActivity({task_id:task.id, project_id:task.project_id, message:`moved ${STATUS[before]} → ${STATUS[status]}`});
   render();
+}
+// Drop a card at a position within a column (optionally changing status). Only board_order changes.
+async function placeOnBoard(movedId, status, targetId, above){
+  const moved=S.tasks.find(t=>t.id===movedId); if(!moved) return;
+  const before=moved.status;
+  const col=S.tasks.filter(t=>t.status===status && t.id!==movedId).sort(boardSort);
+  let idx=col.length; if(targetId){ idx=col.findIndex(t=>t.id===targetId); if(idx<0) idx=col.length; else if(!above) idx++; }
+  col.splice(idx,0,moved);
+  const updates=col.map((t,i)=>({t, board_order:i+1})).filter(u=>u.t.board_order!==u.board_order || u.t.id===movedId);
+  updates.forEach(u=>{ u.t.board_order=u.board_order; }); moved.status=status;
+  render();
+  const results=await Promise.all(updates.map(u=>sb.from('tasks').update(u.t.id===movedId?{status,board_order:u.board_order}:{board_order:u.board_order}).eq('id',u.t.id).select().single()));
+  const bad=results.find(r=>r.error); if(bad){ toast('Move failed: '+bad.error.message); await load(); render(); return; }
+  results.forEach(r=>{ const i=S.tasks.findIndex(t=>t.id===r.data.id); if(i>=0) S.tasks[i]=r.data; });
+  if(before!==status){ logActivity({task_id:moved.id, project_id:moved.project_id, message:`moved ${STATUS[before]} → ${STATUS[status]}`}); render(); }
 }
 
 /* ============================================================
@@ -559,7 +577,7 @@ function renderProjects(){
 function renderKanban(){
   const board=$('board');
   board.innerHTML = STATUSES.map(s=>{
-    const items = S.tasks.filter(t=>t.status===s.key && taskVisible(t)).sort((a,b)=>(a.sort_order-b.sort_order)||a.created_at.localeCompare(b.created_at));
+    const items = S.tasks.filter(t=>t.status===s.key && taskVisible(t)).sort(boardSort);
     return `<div class="col" data-col="${s.key}">
       <div class="col-h"><span class="spill ${s.key}">${s.label}</span><span class="n">${items.length}</span><button class="add" data-newt="${s.key}" title="New task">+</button></div>
       <div class="col-b" data-drop="${s.key}">
@@ -634,7 +652,7 @@ for(const [id,key] of [['fMine','mine'],['fOverdue','overdue'],['fHideClosed','h
    DRAG & DROP (desktop)
    ============================================================ */
 let dragId=null, dragRow=null;
-const clearDropMarks=()=>document.querySelectorAll('.col.over,.trow.drop-above,.trow.drop-below').forEach(x=>x.classList.remove('over','drop-above','drop-below'));
+const clearDropMarks=()=>document.querySelectorAll('.col.over,.drop-above,.drop-below').forEach(x=>x.classList.remove('over','drop-above','drop-below'));
 document.addEventListener('dragstart',e=>{
   const c=e.target.closest('.card'); const r=e.target.closest('.trow');
   if(c){ dragId=c.dataset.tid; c.classList.add('dragging'); }
@@ -644,13 +662,17 @@ document.addEventListener('dragstart',e=>{
 });
 document.addEventListener('dragend',e=>{ document.querySelectorAll('.dragging').forEach(x=>x.classList.remove('dragging')); clearDropMarks(); dragId=dragRow=null; });
 document.addEventListener('dragover',e=>{
-  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault(); clearDropMarks(); col.classList.add('over'); return; }
+  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault(); clearDropMarks(); col.classList.add('over');
+    const c=e.target.closest('.card'); if(c && c.dataset.tid!==dragId){ const bx=c.getBoundingClientRect(); c.classList.add(e.clientY < bx.top+bx.height/2 ? 'drop-above':'drop-below'); } return; }
   if(dragRow){ const r=e.target.closest('.trow'); if(!r||r.dataset.tid===dragRow) return;
     const src=S.tasks.find(t=>t.id===dragRow); if(src.project_id!==r.dataset.pid) return;
     e.preventDefault(); clearDropMarks(); const half=r.getBoundingClientRect(); r.classList.add(e.clientY < half.top+half.height/2 ? 'drop-above':'drop-below'); }
 });
 document.addEventListener('drop',async e=>{
-  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault(); const task=S.tasks.find(t=>t.id===dragId); dragId=null; await setStatus(task,col.dataset.col); return; }
+  if(dragId){ const col=e.target.closest('.col'); if(!col) return; e.preventDefault();
+    const c=e.target.closest('.card'); const id=dragId; dragId=null;
+    const targetId = (c && c.dataset.tid!==id) ? c.dataset.tid : null; const above = c ? c.classList.contains('drop-above') : false;
+    clearDropMarks(); await placeOnBoard(id, col.dataset.col, targetId, above); return; }
   if(dragRow){ const r=e.target.closest('.trow'); if(!r) return; e.preventDefault();
     const above=r.classList.contains('drop-above'); const id=dragRow; dragRow=null; clearDropMarks();
     await reorderTask(id, r.dataset.tid, above); }
