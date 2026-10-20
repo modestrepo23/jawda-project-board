@@ -5,9 +5,9 @@
 // requests once the shared password has been entered.
 // ============================================================
 window.JAWDA_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY",
+  SUPABASE_URL: "https://dyhdnsclxmuetaiipzin.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_8R_YtU2p7eYaXgrXCtgg5A_e4NNbAkD",
   // The email of the single shared login you create in Supabase → Authentication → Users
-  LOGIN_EMAIL: "team@jawda.co.uk",
+  LOGIN_EMAIL: "admin@jawda.co.uk",
   BOARD_NAME: "Jawda Board",
 };
