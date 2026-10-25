@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="robots" content="noindex, nofollow">
+<title>Swatch Collections</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<link rel="stylesheet" href="../samples/samples.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+.grp{margin:0 0 22px}
+.grp>h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px;display:flex;gap:8px;align-items:center}
+.grp>h2 .n{font-weight:500;letter-spacing:0;text-transform:none}
+.wcard .ph{aspect-ratio:1/1}
+.wcard .cols{font-size:12px;color:var(--suede);white-space:pre-line;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.wcard .stock{font-size:12px;color:#4E7247}
+.used{display:flex;flex-direction:column;gap:4px}
+.used a{display:flex;gap:8px;align-items:center;text-decoration:none;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.used a:last-child{border-bottom:0}
+.used a i{width:30px;height:36px;border-radius:5px;background:#E9E2D6 center/cover;flex:none}
+.stockrow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.stockrow:last-child{border-bottom:0}
+.neg{color:var(--umber);font-weight:600}
+</style>
+</head>
+<body>
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Swatch collections</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Samples</span></a>
+    <nav class="pnav" id="pnav" aria-label="Sample pages"></nav>
+    <div class="grow"></div>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export swatches to CSV</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="banner"></div>
+    <div class="intro"><div class="left">
+      <h1>Swatch collections</h1>
+      <p class="lede">Every fabric swatch we're considering – photos, what it's like, the colours and quantities available, and which samples use it.</p>
+    </div></div>
+    <div class="colchips" id="chips"></div>
+    <div class="toolbar">
+      <input type="search" id="fSearch" placeholder="Search name, supplier, colours…">
+      <select id="fStatus" aria-label="Status"><option value="">Any status</option></select>
+      <span class="grow"></span>
+      <span class="muted" id="count"></span>
+      <button class="btn primary" id="btnNew">＋ New swatch</button>
+    </div>
+    <div id="list"></div>
+  </main>
+</section>
+
+<div class="drawer" id="drawer"><div class="pane">
+  <div class="dh">
+    <input class="no" id="dCode" placeholder="Code" aria-label="Swatch code">
+    <input class="nm" id="dName" placeholder="Swatch name" aria-label="Swatch name">
+    <button class="ib" id="dClose" aria-label="Close">×</button>
+  </div>
+  <div class="db" id="dBody"></div>
+  <div class="df">
+    <button class="btn line sm l" id="dDel">Delete</button>
+    <button class="btn line sm" id="dDup">⧉ Duplicate</button>
+    <button class="btn line sm" id="dPrev">‹ Prev</button>
+    <button class="btn line sm" id="dNext">Next ›</button>
+    <button class="btn dark sm" id="dAdd">＋ Next new</button>
+  </div>
+</div></div>
+<datalist id="groupList"></datalist><datalist id="supList"></datalist><datalist id="stockList"></datalist>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script src="../samples/media.js"></script>
+<script>
+const STATUSES=['Considering','Sampling','Approved','Ordered','Rejected'];
+const cls=v=>'st-'+String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const UI={group:'',q:'',status:'',open:null};
+const SW=()=>M.D.swatches, S=()=>M.D.samples;
+const cur=()=>SW().find(x=>x.id===UI.open);
+const bg=img=>img&&M.src(img)?`style="background-image:url('${M.src(img)}')"`:'';
+const cover=x=>(x.images||[])[0];
+const usedBy=x=>S().filter(s=>(s.swatch_ids||[]).includes(x.id));
+let STOCK=null; // fabric stock rows from the production tables, if we can read them
+function stockFor(x){
+  if(!STOCK||!x.stock_name) return [];
+  return STOCK.fabrics.filter(f=>f.name===x.stock_name).map(f=>{
+    const used=STOCK.lines.filter(l=>l.fabric_id===f.id&&STOCK.runIds.has(l.run_id)).reduce((a,l)=>a+Object.values(l.sizes||{}).reduce((p,q)=>p+(+q||0),0)*(+l.consumption||0),0);
+    const bought=STOCK.purchases.filter(p=>p.stock_fabric_id===f.id&&p.measure==='yards'&&(!STOCK.since||p.entered_on>=STOCK.since)).reduce((a,p)=>a+(+p.quantity||0),0);
+    return {colour:f.colour,held:(+f.in_stock||0)+bought,left:(+f.in_stock||0)+bought-used,onOrder:(+f.on_order||0)+(+f.planned_order||0)};
+  });
+}
+async function loadStock(){
+  if(J.mode!=='remote'){ STOCK=window.PF_TEST_SEED?mkStock(window.PF_TEST_SEED):null; return; }
+  const q=t=>J.sb.from(t).select('*');
+  const r=await Promise.all([q('pf_fabrics'),q('pf_lines'),q('pf_runs'),q('fabric_purchases'),q('pf_settings')]);
+  if(r.some(x=>x.error)) return;
+  STOCK=mkStock({fabrics:r[0].data,lines:r[1].data,runs:r[2].data,purchases:r[3].data,settings:(r[4].data[0]||{}).value||{}});
+}
+function mkStock(d){ const since=d.settings?.fabric_count_date; return {...d,since,runIds:new Set(d.runs.filter(x=>!since||x.run_date>=since).map(x=>x.id))}; }
+const fmt=n=>Math.round(n).toLocaleString('en-GB');
+
+function filtered(){
+  const q=UI.q.toLowerCase();
+  return SW().filter(x=>(!UI.group||(x.group_name||'Other')===UI.group)&&(!UI.status||x.status===UI.status)&&
+    (!q||`${x.code} ${x.name} ${x.group_name||''} ${x.supplier||''} ${x.composition||''} ${x.colours||''} ${x.description||''}`.toLowerCase().includes(q)))
+    .sort((a,b)=>(a.sort??0)-(b.sort??0));
+}
+async function render(){
+  $('pnav').innerHTML=M.nav('Swatch Collections'); $('banner').innerHTML=M.banner();
+  const groups=[...new Set(SW().map(x=>x.group_name||'Other'))];
+  $('chips').innerHTML=`<button class="cc ${!UI.group?'on':''}" data-group=""><div class="nm">All swatches</div><div class="p">${SW().length}</div></button>`+
+    groups.map(g=>`<button class="cc ${UI.group===g?'on':''}" data-group="${J.esc(g)}"><div class="nm">${J.esc(g)}</div><div class="p">${SW().filter(x=>(x.group_name||'Other')===g).length}</div></button>`).join('');
+  $('fStatus').innerHTML='<option value="">Any status</option>'+STATUSES.map(s=>`<option${s===UI.status?' selected':''}>${s}</option>`).join('');
+  $('groupList').innerHTML=groups.map(g=>`<option value="${J.esc(g)}">`).join('');
+  $('supList').innerHTML=[...new Set(SW().map(x=>x.supplier).filter(Boolean))].map(g=>`<option value="${J.esc(g)}">`).join('');
+  $('stockList').innerHTML=STOCK?[...new Set(STOCK.fabrics.map(f=>f.name))].map(n=>`<option value="${J.esc(n)}">`).join(''):'';
+  const list=filtered(); await M.sign(list.map(cover).filter(Boolean));
+  $('count').textContent=`${list.length} swatch${list.length===1?'':'es'}`;
+  if(!list.length){ $('list').innerHTML='<div class="empty">No swatches here yet. Tap <b>＋ New swatch</b> – or drop photos here to start one.</div>'; M.dropzone($('list').firstChild,fs=>newSwatch(fs)); return; }
+  const by=new Map(); list.forEach(x=>{const g=x.group_name||'Other'; if(!by.has(g)) by.set(g,[]); by.get(g).push(x);});
+  $('list').innerHTML=[...by].map(([g,xs])=>`<section class="grp"><h2>${J.esc(g)} <span class="n">${xs.length}</span></h2><div class="cards">${xs.map(x=>{
+    const c=cover(x), u=usedBy(x).length, st=stockFor(x), n=(x.images||[]).length;
+    return `<div class="scard wcard" data-open="${x.id}"><div class="ph" data-drop="${x.id}" ${bg(c)}>${c?'':'<span>No photos yet<br>drop pictures here</span>'}${n>1?`<span class="cnt">${n} photos</span>`:''}</div>
+      <div class="bd"><span class="no">${J.esc(x.code||'')}${x.supplier?' · '+J.esc(x.supplier):''}</span><h3>${J.esc(x.name)}</h3>
+      <span class="meta">${[x.composition,x.weight,x.price].filter(Boolean).map(J.esc).join(' · ')}</span>
+      <div class="pills"><span class="pill ${cls(x.status)}">${J.esc(x.status)}</span>${u?`<span class="pill">Used in ${u} sample${u>1?'s':''}</span>`:''}</div>
+      ${x.colours?`<div class="cols">${J.esc(x.colours)}</div>`:''}
+      ${st.length?`<span class="stock">In stock: ${st.map(r=>`${J.esc(r.colour)} ${fmt(r.held)} yd`).join(' · ')}</span>`:''}
+      </div></div>`;}).join('')}</div></section>`).join('');
+  document.querySelectorAll('[data-drop]').forEach(el=>M.dropzone(el,fs=>addPhotos(SW().find(x=>x.id===el.dataset.drop),fs)));
+}
+function openDrawer(id){ UI.open=id; history.replaceState(null,'','?w='+id); renderDrawer(); $('drawer').classList.add('on'); }
+function closeDrawer(){ UI.open=null; $('drawer').classList.remove('on'); history.replaceState(null,'',location.pathname); render(); }
+const ta=(f,l,x,rows=3,ph='')=>`<div class="field full"><label>${l}</label><textarea data-f="${f}" rows="${rows}" placeholder="${ph}">${J.esc(x[f]||'')}</textarea></div>`;
+const inp=(f,l,x,ph='',list='')=>`<div class="field"><label>${l}</label><input data-f="${f}" value="${J.esc(x[f]??'')}" placeholder="${ph}"${list?` list="${list}"`:''}></div>`;
+async function renderDrawer(){
+  const x=cur(); if(!x) return; const ims=x.images||[], used=usedBy(x);
+  await M.sign([...ims,...used.flatMap(s=>(s.images||[]).slice(0,1))]);
+  $('dCode').value=x.code||''; $('dName').value=x.name||'';
+  const st=stockFor(x);
+  $('dBody').innerHTML=`
+  <div class="sec"><h4>Photos <span class="r muted">Drop, paste or add · ★ = cover</span></h4>
+    <div class="photos" id="photos">${ims.map((im,i)=>`<div class="pt ${i===0?'first':''}" data-view="${i}" ${bg(im)}><button class="x" data-rm="${i}" title="Remove">×</button><button class="cv" data-cover="${i}" title="Make cover">★</button></div>`).join('')}
+    <div class="dz" id="dz"><span class="big">＋</span>Drop photos here<br>or paste<div><button type="button" id="pick">Add photos</button></div></div></div></div>
+  <div class="sec"><h4>Status</h4><div class="choice" data-choice="status">${STATUSES.map(s=>`<button type="button" data-v="${s}" class="${s===x.status?'on '+cls(s):''}">${s}</button>`).join('')}</div></div>
+  <div class="sec"><h4>About this swatch</h4><div class="fg">
+    ${inp('group_name','Swatch collection',x,'e.g. Nice Fabrics – mill fabrics','groupList')}${inp('supplier','Supplier / store',x,'e.g. Nice Fabrics','supList')}
+    ${inp('composition','Composition',x,'e.g. 62% Tencel, 38% Cotton')}${inp('weight','Weight / feel',x,'e.g. 250 GSM, medium')}
+    ${inp('price','Price',x,'e.g. $2.20 / yd')}${inp('stock_name','Fabric in Fabric Stock (if we hold it)',x,'Pick from the list','stockList')}
+    ${ta('colours','Colours available & quantities',x,5,'e.g.\nBlack – 400y\nCream 11-0605 TCX – 200y')}
+    ${ta('description','Description',x,3,'What it feels like, what we made from it, what we liked')}
+    ${ta('notes','Notes',x,2)}
+  </div></div>
+  ${st.length?`<div class="sec"><h4>What we hold <span class="r muted">From Fabric Stock</span></h4>${st.map(r=>`<div class="stockrow"><span>${J.esc(r.colour)}</span><span>${fmt(r.held)} yd held · <b class="${r.left<0?'neg':''}">${fmt(r.left)} yd</b> left after runs${r.onOrder?` · +${fmt(r.onOrder)} ordered/planned`:''}</span></div>`).join('')}</div>`:''}
+  <div class="sec"><h4>Samples using it <span class="r muted">${used.length}</span></h4><div class="used">${used.length?used.map(s=>`<a href="../samples/?s=${s.id}"><i ${bg((s.images||[])[0])}></i><span><b>${J.esc(s.name)}</b> <span class="muted">${J.esc(s.item_no||'')} · ${J.esc(s.sample_status||'')}</span></span></a>`).join(''):'<span class="muted">No samples yet – pick this swatch on a sample in Samples.</span>'}</div></div>`;
+  M.dropzone($('dz'),fs=>addPhotos(x,fs)); $('dz').addEventListener('click',e=>{ if(!e.target.closest('button')) M.picker(fs=>addPhotos(x,fs)); }); M.dropzone($('photos'),fs=>addPhotos(x,fs)); $('pick').onclick=()=>M.picker(fs=>addPhotos(x,fs));
+}
+const save=x=>M.later('w'+x.id,()=>M.put('swatches',x));
+async function addPhotos(x,files){
+  if(!x) return; J.toast(`Uploading ${files.length} photo${files.length>1?'s':''}…`);
+  const up=await M.upload(files,'swatches/'+x.id); if(!up.length) return;
+  x.images=[...(x.images||[]),...up]; await M.put('swatches',x); J.toast(`${up.length} photo${up.length>1?'s':''} added`);
+  if(UI.open===x.id) renderDrawer(); render();
+}
+const nextCode=()=>'SW'+String(SW().reduce((a,x)=>Math.max(a,+(String(x.code||'').replace(/\D/g,''))||0),0)+1).padStart(3,'0');
+async function newSwatch(files){
+  const x={id:M.uuid(),code:nextCode(),name:'',group_name:UI.group||null,status:'Considering',images:[],sort:SW().reduce((a,y)=>Math.max(a,y.sort??0),0)+1};
+  await M.put('swatches',x); openDrawer(x.id); setTimeout(()=>$('dName').focus(),50); if(files&&files.length) addPhotos(x,files); render();
+}
+$('dBody').addEventListener('input',e=>{ const t=e.target, x=cur(); if(!x||!t.dataset.f) return; x[t.dataset.f]=t.value||null; save(x); });
+$('dName').oninput=e=>{ const x=cur(); x.name=e.target.value; save(x); };
+$('dCode').oninput=e=>{ const x=cur(); x.code=e.target.value||null; save(x); };
+$('dBody').addEventListener('click',async e=>{
+  const x=cur(); if(!x) return; const b=e.target.closest('button');
+  const cb=e.target.closest('.choice button'); if(cb){ x.status=cb.dataset.v; await M.put('swatches',x); cb.parentElement.querySelectorAll('button').forEach(y=>y.className=y.dataset.v===x.status?'on '+cls(y.dataset.v):''); return; }
+  if(b&&b.dataset.rm!==undefined){ e.stopPropagation(); if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='?'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent='×'; } },2500); return; }
+    const im=x.images[+b.dataset.rm]; x.images=x.images.filter((_,i)=>i!==+b.dataset.rm); await M.put('swatches',x); M.remove([im.path]); renderDrawer(); return; }
+  if(b&&b.dataset.cover!==undefined){ e.stopPropagation(); const im=x.images.splice(+b.dataset.cover,1)[0]; x.images.unshift(im); await M.put('swatches',x); renderDrawer(); return; }
+  const v=e.target.closest('[data-view]'); if(v) M.view(x.images,+v.dataset.view);
+});
+M.onPaste(()=>UI.open&&$('drawer').classList.contains('on')?(fs=>addPhotos(cur(),fs)):null);
+$('dClose').onclick=closeDrawer;
+$('drawer').addEventListener('click',e=>{ if(e.target.id==='drawer') closeDrawer(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('drawer').classList.contains('on')&&!document.querySelector('.lightbox.on')) closeDrawer(); });
+const step=d=>{ const l=filtered(); const i=l.findIndex(x=>x.id===UI.open); const n=l[(i+d+l.length)%l.length]; if(n) openDrawer(n.id); };
+$('dPrev').onclick=()=>step(-1); $('dNext').onclick=()=>step(1); $('dAdd').onclick=()=>newSwatch();
+$('dDup').onclick=async()=>{ const x=cur(); const c={...JSON.parse(JSON.stringify(x)),id:M.uuid(),code:nextCode(),name:x.name+' (copy)',images:[],sort:(x.sort??0)+0.5}; delete c.created_at; await M.put('swatches',c); openDrawer(c.id); render(); };
+$('dDel').onclick=async()=>{ const b=$('dDel'), x=cur(), u=usedBy(x).length;
+  if(!b.dataset.sure){ b.dataset.sure=1; b.textContent=u?`Used by ${u} samples – tap to delete`:'Tap again to delete'; setTimeout(()=>{delete b.dataset.sure; b.textContent='Delete';},3000); return; }
+  for(const s of usedBy(x)){ s.swatch_ids=s.swatch_ids.filter(i=>i!==x.id); await M.put('samples',s); }
+  M.remove((x.images||[]).map(i=>i.path)); await M.del('swatches',x.id); delete b.dataset.sure; b.textContent='Delete'; closeDrawer(); J.toast('Swatch deleted'); };
+document.addEventListener('click',e=>{
+  if(e.target.closest('.drawer')) return;
+  const b=e.target.closest('button'); if(b&&b.dataset.group!==undefined){ UI.group=b.dataset.group; render(); return; }
+  const o=e.target.closest('[data-open]'); if(o) openDrawer(o.dataset.open);
+});
+$('fSearch').oninput=e=>{ UI.q=e.target.value; render(); };
+$('fStatus').onchange=e=>{ UI.status=e.target.value; render(); };
+$('btnNew').onclick=()=>newSwatch();
+$('actRefresh').onclick=async()=>{ await M.load(['swatches','samples']); await loadStock(); render(); if(UI.open) renderDrawer(); J.toast('Up to date'); };
+$('actCsv').onclick=()=>J.csv('jawda-swatches.csv',['Code','Name','Swatch collection','Supplier','Composition','Weight','Price','Status','Colours & quantities','Description','Notes','Samples using it','Photos'],
+  SW().map(x=>[x.code,x.name,x.group_name,x.supplier,x.composition,x.weight,x.price,x.status,x.colours,x.description,x.notes,usedBy(x).map(s=>s.name).join('; '),(x.images||[]).length]));
+J.boot(async()=>{
+  await M.load(['swatches','samples']); await loadStock();
+  const w=new URLSearchParams(location.search).get('w'); await render(); if(w&&SW().some(x=>x.id===w)) openDrawer(w);
+  if(J.mode==='remote') J.setSave('Saved');
+});
+</script>
+</body>
+</html>

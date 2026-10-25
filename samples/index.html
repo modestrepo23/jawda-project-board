@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="robots" content="noindex, nofollow">
+<title>Samples</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<link rel="stylesheet" href="samples.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+</head>
+<body>
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Samples</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Samples</span></a>
+    <nav class="pnav" id="pnav" aria-label="Sample pages"></nav>
+    <div class="grow"></div>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export this collection to CSV</button>
+        <button id="actEditColl">Edit this collection</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="banner"></div>
+    <div class="intro"><div class="left">
+      <h1>Samples</h1>
+      <p class="lede">Every sample by collection, with photos, references, the swatches it's made from and where it's up to. Tap a sample to edit – everything saves as you type.</p>
+    </div></div>
+
+    <div class="colchips" id="chips"></div>
+    <div class="toolbar">
+      <input type="search" id="fSearch" placeholder="Search name, item no, detailing, colours…">
+      <select id="fStatus" aria-label="Sample status"><option value="">Any sample status</option></select>
+      <select id="fSwatch" aria-label="Swatch"><option value="">Any swatch</option></select>
+      <span class="seg" id="viewSeg"><button data-view="cards">Cards</button><button data-view="table">Table</button></span>
+      <span class="grow"></span>
+      <span class="muted" id="count"></span>
+      <button class="btn primary" id="btnNew">＋ New sample</button>
+    </div>
+    <div id="list"></div>
+  </main>
+</section>
+
+<div class="drawer" id="drawer"><div class="pane">
+  <div class="dh">
+    <input class="no" id="dNo" placeholder="Item no" aria-label="Item number">
+    <input class="nm" id="dName" placeholder="Sample name" aria-label="Sample name">
+    <button class="ib" id="dClose" aria-label="Close">×</button>
+  </div>
+  <div class="db" id="dBody"></div>
+  <div class="df">
+    <button class="btn line sm l" id="dDel">Delete</button>
+    <select id="dMove" class="btn line sm" aria-label="Move to collection"></select>
+    <button class="btn line sm" id="dDup" title="Copy this sample – e.g. same design in another fabric">⧉ Duplicate</button>
+    <button class="btn line sm" id="dPrev">‹ Prev</button>
+    <button class="btn line sm" id="dNext">Next ›</button>
+    <button class="btn dark sm" id="dAdd">＋ Next new</button>
+  </div>
+</div></div>
+
+<div class="modal" id="collModal"><div class="mc">
+  <h3 id="cmTitle">New collection</h3>
+  <div class="field"><label for="cmName">Name</label><input id="cmName" placeholder="e.g. Spring Part 1 2027"></div>
+  <div class="field"><label for="cmLaunch">Launch</label><input id="cmLaunch" placeholder="e.g. Spring 2027"></div>
+  <div class="field"><label for="cmGid">Tracker tab link (optional)</label><input id="cmGid" placeholder="Paste the SAMPLES tab link"></div>
+  <div class="mf"><button class="btn line" id="cmDel">Delete</button><span style="flex:1"></span><button class="btn line" id="cmCancel">Cancel</button><button class="btn primary" id="cmSave">Save</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script src="media.js"></script>
+<script>
+const TRACKER='https://docs.google.com/spreadsheets/d/134V1xi7YLlEau3UEKVopaaFhW9KwLtq5Wh8UIvqk2JM/edit#gid=';
+const ST={
+  techpack_status:['Not started yet','Work in progress','Waiting for approval','Approved','Waiting for fabric'],
+  sample_status:['Not started yet','Work in progress','The sample is not ready yet','Sample done','Resampling','Retouching','Awaiting FG Approval','Approved','Disapproved'],
+  fabric_status:['Not Assigned','Awaiting feedback','Approved','Disapproved'],
+  feedback_status:['Work in progress','Waiting for focus group feedback','Feedback given','Final']
+};
+const ST_LABEL={techpack_status:'Tech pack',sample_status:'Sample',fabric_status:'Fabric',feedback_status:'Feedback'};
+const TYPES=['Abaya','Dress','Two-Piece','Top','Skirt','Trousers','Jacket','Top / Blazer','Coat'];
+const SIZES=['50-60','XS-XL','One size'];
+const cls=v=>'st-'+String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const pill=v=>v?`<span class="pill ${cls(v)}">${J.esc(v)}</span>`:'';
+const UI={coll:null,q:'',status:'',swatch:'',view:'cards',open:null};
+try{ UI.view=localStorage.getItem('jawda.samples.view')||'cards'; }catch(e){}
+const S=()=>M.D.samples, SW=()=>M.D.swatches, C=()=>M.D.sample_collections;
+const sw=id=>SW().find(x=>x.id===id);
+const cur=()=>S().find(x=>x.id===UI.open);
+const inColl=()=>S().filter(s=>s.collection_id===UI.coll).sort((a,b)=>(a.sort??0)-(b.sort??0));
+function visible(){
+  const q=UI.q.toLowerCase();
+  return inColl().filter(s=>{
+    if(UI.status&&s.sample_status!==UI.status) return false;
+    if(UI.swatch&&!(s.swatch_ids||[]).includes(UI.swatch)) return false;
+    if(q&&!`${s.item_no||''} ${s.name} ${s.detailing||''} ${s.colours||''} ${s.notes||''} ${s.type||''} ${(s.swatch_ids||[]).map(i=>sw(i)?.name||'').join(' ')}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+const cover=s=>{ const im=s.images||[]; return im.find(i=>i.kind!=='reference')||im[0]||null; };
+const swatchCover=x=>x&&(x.images||[])[0];
+const bg=img=>img&&M.src(img)?`style="background-image:url('${M.src(img)}')"`:'';
+
+async function render(){
+  $('pnav').innerHTML=M.nav('Samples'); $('banner').innerHTML=M.banner();
+  const colls=C().filter(c=>!c.archived).sort((a,b)=>(a.sort??0)-(b.sort??0));
+  if(!UI.coll||!C().some(c=>c.id===UI.coll)) UI.coll=(colls.find(c=>/ramadan/i.test(c.name))||colls[colls.length-1]||{}).id||null;
+  $('chips').innerHTML=colls.map(c=>{const n=S().filter(s=>s.collection_id===c.id).length; return `<button class="cc ${c.id===UI.coll?'on':''}" data-coll="${c.id}"><div class="nm">${J.esc(c.name)}</div><div class="p">${n} sample${n===1?'':'s'}${c.launch?' · '+J.esc(c.launch):''}</div></button>`;}).join('')+`<button class="cc add" id="btnNewColl">＋ Collection</button>`;
+  $('fStatus').innerHTML='<option value="">Any sample status</option>'+ST.sample_status.map(x=>`<option${x===UI.status?' selected':''}>${x}</option>`).join('');
+  const used=new Set(inColl().flatMap(s=>s.swatch_ids||[]));
+  $('fSwatch').innerHTML='<option value="">Any swatch</option>'+SW().filter(x=>used.has(x.id)).map(x=>`<option value="${x.id}"${x.id===UI.swatch?' selected':''}>${J.esc(x.name)}</option>`).join('');
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.view===UI.view));
+  const list=visible();
+  await M.sign([...list.flatMap(s=>s.images||[]),...SW().map(swatchCover).filter(Boolean)]);
+  $('count').textContent=`${list.length} of ${inColl().length}`;
+  if(!UI.coll){ $('list').innerHTML='<div class="empty">Add a collection to start.</div>'; return; }
+  if(!list.length){ $('list').innerHTML=`<div class="empty">${inColl().length?'No samples match.':'No samples in this collection yet. Tap <b>＋ New sample</b> – or drop photos here to start one.'}</div>`; M.dropzone($('list').firstChild,fs=>newSample(fs)); return; }
+  if(UI.view==='cards'){
+    $('list').innerHTML=`<div class="cards">${list.map(s=>{
+      const c=cover(s), n=(s.images||[]).length;
+      return `<div class="scard" data-open="${s.id}">
+        <div class="ph" data-drop="${s.id}" ${bg(c)}>${c?'':'<span>No photos yet<br>drop pictures here</span>'}${n>1?`<span class="cnt">${n} photos</span>`:''}${c&&c.kind==='reference'?'<span class="ref">Reference</span>':''}</div>
+        <div class="bd"><span class="no">${J.esc(s.item_no||'No item no')}${s.launch_group?' · '+J.esc(s.launch_group):''}</span><h3>${J.esc(s.name||'Untitled')}</h3>
+          <span class="meta">${[s.type,s.sizing,s.pcs?s.pcs+' pcs':''].filter(Boolean).map(J.esc).join(' · ')}</span>
+          <div class="pills">${s.techpack_status?`<span class="pill ${cls(s.techpack_status)}" title="Tech pack">TP: ${J.esc(s.techpack_status)}</span>`:''}${s.sample_status?`<span class="pill ${cls(s.sample_status)}" title="Sample">${J.esc(s.sample_status)}</span>`:''}${s.fabric_status?`<span class="pill ${cls(s.fabric_status)}" title="Fabric">Fabric: ${J.esc(s.fabric_status)}</span>`:''}</div>
+          <div class="swl">${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>`<span class="swc"><i ${bg(swatchCover(x))}></i><span>${J.esc(x.name)}</span></span>`).join('')}</div>
+          ${s.colours?`<span class="meta">${J.esc(s.colours)}</span>`:''}
+        </div></div>`;}).join('')}</div>`;
+    document.querySelectorAll('[data-drop]').forEach(el=>M.dropzone(el,fs=>addPhotos(S().find(x=>x.id===el.dataset.drop),fs)));
+  } else {
+    const sel=(s,f)=>`<select class="${cls(s[f])}" data-set="${f}" data-id="${s.id}"><option value=""></option>${ST[f].map(v=>`<option${v===s[f]?' selected':''}>${v}</option>`).join('')}${s[f]&&!ST[f].includes(s[f])?`<option selected>${J.esc(s[f])}</option>`:''}</select>`;
+    $('list').innerHTML=`<div class="tbl"><table class="t"><thead><tr><th></th><th>Item</th><th>Name</th><th>Type</th><th>Sizing</th><th>Tech pack</th><th>Sample</th><th>Fabric</th><th>Swatches</th><th>Colours</th><th>Feedback</th></tr></thead><tbody>${list.map(s=>`<tr>
+      <td><span class="thumb" data-open="${s.id}" ${bg(cover(s))}></span></td><td class="muted">${J.esc(s.item_no||'')}</td><td class="nm" data-open="${s.id}">${J.esc(s.name)}</td><td>${J.esc(s.type||'')}</td><td>${J.esc(s.sizing||'')}</td>
+      <td>${sel(s,'techpack_status')}</td><td>${sel(s,'sample_status')}</td><td>${sel(s,'fabric_status')}</td>
+      <td>${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>J.esc(x.name)).join(', ')}</td><td>${J.esc(s.colours||'')}</td><td class="muted" style="max-width:260px">${J.esc((s.feedback||'').slice(0,140))}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+}
+
+// ---------- drawer ----------
+function openDrawer(id){ UI.open=id; history.replaceState(null,'',`?c=${UI.coll}&s=${id}`); renderDrawer(); $('drawer').classList.add('on'); }
+function closeDrawer(){ UI.open=null; $('drawer').classList.remove('on'); history.replaceState(null,'',`?c=${UI.coll}`); render(); }
+const choice=(f,opts,v,allowClear=true)=>`<div class="choice" data-choice="${f}" data-clear="${allowClear?1:0}">${opts.map(o=>`<button type="button" data-v="${J.esc(o)}" class="${o===v?'on '+cls(o):''}">${J.esc(o)}</button>`).join('')}${v&&!opts.includes(v)?`<button type="button" class="on" data-v="${J.esc(v)}">${J.esc(v)}</button>`:''}</div>`;
+const ta=(f,l,s,rows=3,full=true)=>`<div class="field${full?' full':''}"><label>${l}</label><textarea data-f="${f}" rows="${rows}">${J.esc(s[f]||'')}</textarea></div>`;
+const inp=(f,l,s,ph='',type='text')=>`<div class="field"><label>${l}</label><input data-f="${f}" type="${type}" value="${J.esc(s[f]??'')}" placeholder="${ph}"></div>`;
+async function renderDrawer(){
+  const s=cur(); if(!s) return;
+  await M.sign([...(s.images||[]),...SW().map(swatchCover).filter(Boolean)]);
+  $('dNo').value=s.item_no||''; $('dName').value=s.name||'';
+  $('dMove').innerHTML=C().map(c=>`<option value="${c.id}"${c.id===s.collection_id?' selected':''}>${c.id===s.collection_id?'In: ':'Move to: '}${J.esc(c.name)}</option>`).join('');
+  const ims=s.images||[];
+  $('dBody').innerHTML=`
+  <div class="sec"><h4>Photos &amp; references <span class="r muted">Drop, paste or add · tap the tag to switch Sample / Reference · ★ = cover</span></h4>
+    <div class="photos" id="photos">${ims.map((im,i)=>`<div class="pt ${i===0?'first':''}" data-view="${i}" ${bg(im)}><span class="k ${im.kind==='reference'?'ref':''}" data-kind="${i}">${im.kind==='reference'?'Reference':'Sample'}</span><button class="x" data-rm="${i}" title="Remove">×</button><button class="cv" data-cover="${i}" title="Make cover">★</button></div>`).join('')}
+      <div class="dz" id="dz"><span class="big">＋</span>Drop photos here<br>or paste<div><button type="button" id="pickRef">Add references</button></div><div><button type="button" id="pickSample">Add sample photos</button></div></div></div></div>
+  <div class="sec"><h4>Status</h4>
+    ${['techpack_status','sample_status','fabric_status','feedback_status'].map(f=>`<div class="strow"><span>${ST_LABEL[f]}</span>${choice(f,ST[f],s[f],f==='feedback_status')}</div>`).join('')}
+  </div>
+  <div class="sec"><h4>Fabric</h4>
+    <div class="swl" id="swSel" style="margin-bottom:8px">${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>`<span class="swc"><i ${bg(swatchCover(x))}></i><span>${J.esc(x.code||'')} ${J.esc(x.name)}</span><button data-unsw="${x.id}" title="Remove">×</button></span>`).join('')||'<span class="muted">No swatch chosen yet</span>'}</div>
+    <div class="picker" id="picker"><div class="field"><input id="swQ" placeholder="Add a swatch – type to search, or a new name to create one" autocomplete="off"></div><div class="pl" id="swList"></div></div>
+    <div class="fg" style="margin-top:10px">${inp('colours','Colours',s,'e.g. Black, Espresso, Tea Leaf, Moonbeam')}${inp('pcs','Pieces planned',s,'e.g. 80','number')}${ta('fabric_note','Fabric notes',s,2)}</div>
+  </div>
+  <div class="sec"><h4>Design</h4>
+    <div class="fg">
+      <div class="field full"><label>Type</label>${choice('type',TYPES,s.type)}</div>
+      <div class="field"><label>Sizing</label>${choice('sizing',SIZES,s.sizing)}</div>
+      <div class="field"><label>Launch group</label>${choice('launch_group',['P1','P2','P3'],s.launch_group)}</div>
+      ${ta('detailing','Detailing',s,3)}
+      ${inp('accessories','Accessories',s,'e.g. (DTM) hidden zipper 13.5 inch')}${inp('accessories_qty','Accessories quantity',s,'e.g. 1pc')}
+      ${inp('techpack_name','Tech pack name',s)}<div class="field"><label>Tech pack link</label><div style="display:flex;gap:6px"><input data-f="techpack_link" value="${J.esc(s.techpack_link||'')}" placeholder="https://…">${s.techpack_link?`<a class="btn line sm" href="${J.esc(s.techpack_link)}" target="_blank" rel="noopener">Open</a>`:''}</div></div>
+    </div></div>
+  <div class="sec"><h4>Feedback &amp; changes</h4><div class="fg">${ta('feedback','Feedback',s,3)}${ta('changes','Notes + changes',s,3)}${ta('notes','Notes',s,2)}</div></div>`;
+  M.dropzone($('dz'),fs=>addPhotos(s,fs)); $('dz').addEventListener('click',e=>{ if(!e.target.closest('button')) M.picker(fs=>addPhotos(s,fs)); }); M.dropzone($('photos'),fs=>addPhotos(s,fs));
+  $('pickRef').onclick=()=>M.picker(fs=>addPhotos(s,fs,'reference'));
+  $('pickSample').onclick=()=>M.picker(fs=>addPhotos(s,fs,'sample'));
+  setupPicker(s);
+}
+function save(s){ M.later('s'+s.id,()=>M.put('samples',s)); }
+async function addPhotos(s,files,kind='sample'){
+  if(!s) return; J.toast(`Uploading ${files.length} photo${files.length>1?'s':''}…`);
+  const up=await M.upload(files,'samples/'+s.id);
+  if(!up.length) return;
+  s.images=[...(s.images||[]),...up.map(u=>({...u,kind}))];
+  await M.put('samples',s); J.toast(`${up.length} photo${up.length>1?'s':''} added`);
+  if(UI.open===s.id) renderDrawer(); render();
+}
+function setupPicker(s){
+  const box=$('picker'), q=$('swQ'), list=$('swList'); let hi=0, opts=[];
+  const draw=()=>{
+    const t=q.value.trim().toLowerCase();
+    opts=SW().filter(x=>!(s.swatch_ids||[]).includes(x.id)&&(!t||`${x.code} ${x.name} ${x.group_name||''} ${x.supplier||''} ${x.composition||''} ${x.colours||''}`.toLowerCase().includes(t)));
+    const groups=new Map(); opts.forEach(x=>{const g=x.group_name||'Other'; if(!groups.has(g)) groups.set(g,[]); groups.get(g).push(x);});
+    opts=[...groups.values()].flat(); let i=0;
+    list.innerHTML=[...groups].map(([g,xs])=>`<div class="g">${J.esc(g)}</div>`+xs.map(x=>`<button type="button" data-addsw="${x.id}" class="${i++===hi?'hi':''}"><i ${bg(swatchCover(x))}></i><span>${J.esc(x.name)}<small>${J.esc([x.code,x.composition,x.supplier].filter(Boolean).join(' · '))}</small></span></button>`).join('')).join('')
+      +(t?`<button type="button" data-newsw="1"><i></i><span>＋ New swatch “${J.esc(q.value.trim())}”<small>Add photos and colours on Swatch Collections</small></span></button>`:'');
+  };
+  q.onfocus=()=>{box.classList.add('open'); draw();};
+  q.oninput=()=>{hi=0; draw();};
+  q.onkeydown=e=>{ if(e.key==='ArrowDown'){hi=Math.min(hi+1,opts.length-1); draw(); e.preventDefault();} else if(e.key==='ArrowUp'){hi=Math.max(hi-1,0); draw(); e.preventDefault();} else if(e.key==='Enter'){ e.preventDefault(); if(opts[hi]) addSw(opts[hi].id); else if(q.value.trim()) newSw(q.value.trim()); } else if(e.key==='Escape') box.classList.remove('open'); };
+  list.onmousedown=e=>e.preventDefault();
+  list.onclick=e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.addsw) addSw(b.dataset.addsw); else if(b.dataset.newsw) newSw(q.value.trim()); };
+  q.onblur=()=>setTimeout(()=>box.classList.remove('open'),150);
+  const addSw=async id=>{ s.swatch_ids=[...(s.swatch_ids||[]),id]; if(!s.fabric_status||s.fabric_status==='Not Assigned') s.fabric_status='Awaiting feedback'; await M.put('samples',s); await renderDrawer(); $('swQ').focus(); };
+  const newSw=async name=>{ const n=SW().reduce((a,x)=>Math.max(a,+(String(x.code||'').replace(/\D/g,''))||0),0)+1;
+    const row={id:M.uuid(),code:'SW'+String(n).padStart(3,'0'),name,group_name:'New swatches',status:'Considering',images:[],sort:n};
+    if(await M.put('swatches',row)) addSw(row.id); };
+}
+function nextItemNo(){
+  let best=null,max=0; for(const s of S()){ const m=String(s.item_no||'').match(/^(.*?)(\d+)$/); if(m&&+m[2]>max){max=+m[2]; best=m[1];} }
+  return best?best+String(max+1).padStart(2,'0'):'';
+}
+async function newSample(files){
+  if(!UI.coll) return;
+  const s={id:M.uuid(),collection_id:UI.coll,item_no:nextItemNo(),name:'',techpack_status:'Not started yet',sample_status:'Not started yet',fabric_status:'Not Assigned',swatch_ids:[],images:[],sort:inColl().reduce((a,x)=>Math.max(a,x.sort??0),0)+1};
+  await M.put('samples',s); UI.q=''; UI.status=''; UI.swatch=''; $('fSearch').value='';
+  openDrawer(s.id); setTimeout(()=>$('dName').focus(),50);
+  if(files&&files.length) addPhotos(s,files);
+  render();
+}
+
+// drawer events
+$('dBody').addEventListener('input',e=>{ const t=e.target, s=cur(); if(!s||!t.dataset.f) return; s[t.dataset.f]=t.type==='number'?(t.value===''?null:Math.round(+t.value)):t.value; save(s); });
+$('dName').oninput=e=>{ const s=cur(); s.name=e.target.value; save(s); };
+$('dNo').oninput=e=>{ const s=cur(); s.item_no=e.target.value; save(s); };
+$('dName').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); $('swQ')?.focus(); } };
+$('dBody').addEventListener('click',async e=>{
+  const s=cur(); if(!s) return;
+  const b=e.target.closest('button');
+  const cb=e.target.closest('.choice button');
+  if(cb){ const wrap=cb.parentElement, f=wrap.dataset.choice, v=cb.dataset.v; s[f]=(s[f]===v&&wrap.dataset.clear==='1')?null:v; await M.put('samples',s);
+    wrap.querySelectorAll('button').forEach(x=>{ x.className=x.dataset.v===s[f]?'on '+cls(x.dataset.v):''; }); return; }
+  if(b&&b.dataset.unsw){ s.swatch_ids=(s.swatch_ids||[]).filter(i=>i!==b.dataset.unsw); await M.put('samples',s); renderDrawer(); return; }
+  if(b&&b.dataset.rm!==undefined){ e.stopPropagation(); if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='?'; b.title='Tap again to remove'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent='×'; } },2500); return; }
+    const im=s.images[+b.dataset.rm]; s.images=s.images.filter((_,i)=>i!==+b.dataset.rm); await M.put('samples',s);
+    if(!S().some(x=>(x.images||[]).some(i=>i.path===im.path))) M.remove([im.path]); renderDrawer(); return; }
+  if(b&&b.dataset.cover!==undefined){ e.stopPropagation(); const i=+b.dataset.cover; const im=s.images.splice(i,1)[0]; s.images.unshift(im); await M.put('samples',s); renderDrawer(); return; }
+  const k=e.target.closest('[data-kind]'); if(k){ e.stopPropagation(); const im=s.images[+k.dataset.kind]; im.kind=im.kind==='reference'?'sample':'reference'; await M.put('samples',s); renderDrawer(); return; }
+  const v=e.target.closest('[data-view]'); if(v){ const ims=s.images||[]; M.view(ims,+v.dataset.view,ims.map(i=>i.kind==='reference'?'Reference':'Sample')); }
+});
+M.onPaste(()=>UI.open&&$('drawer').classList.contains('on')?(fs=>addPhotos(cur(),fs,'reference')):null);
+$('dClose').onclick=closeDrawer;
+$('drawer').addEventListener('click',e=>{ if(e.target.id==='drawer') closeDrawer(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('drawer').classList.contains('on')&&!document.querySelector('.lightbox.on')) closeDrawer(); });
+const step=d=>{ const l=visible(); const i=l.findIndex(x=>x.id===UI.open); const n=l[(i+d+l.length)%l.length]; if(n) openDrawer(n.id); };
+$('dPrev').onclick=()=>step(-1); $('dNext').onclick=()=>step(1);
+$('dAdd').onclick=()=>newSample();
+$('dDup').onclick=async()=>{ const s=cur(); const c={...JSON.parse(JSON.stringify(s)),id:M.uuid(),name:s.name+' (copy)',sort:(s.sort??0)+0.5}; delete c.created_at; await M.put('samples',c); openDrawer(c.id); J.toast('Copied – change the fabric or details'); render(); };
+$('dMove').onchange=async e=>{ const s=cur(); s.collection_id=e.target.value; await M.put('samples',s); UI.coll=s.collection_id; J.toast('Moved'); renderDrawer(); render(); };
+$('dDel').onclick=async()=>{ const b=$('dDel'); if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='Tap again to delete'; setTimeout(()=>{delete b.dataset.sure; b.textContent='Delete';},3000); return; }
+  const s=cur(); const paths=(s.images||[]).map(i=>i.path); await M.del('samples',s.id);
+  M.remove(paths.filter(p=>!S().some(x=>(x.images||[]).some(i=>i.path===p)))); delete b.dataset.sure; b.textContent='Delete'; closeDrawer(); J.toast('Sample deleted'); };
+
+// list events
+document.addEventListener('click',async e=>{
+  if(e.target.closest('.drawer')||e.target.closest('.modal')) return;
+  const b=e.target.closest('button');
+  if(b&&b.dataset.coll){ UI.coll=b.dataset.coll; UI.swatch=''; history.replaceState(null,'',`?c=${UI.coll}`); render(); return; }
+  if(b&&b.id==='btnNewColl'){ openColl(null); return; }
+  if(b&&b.dataset.view){ UI.view=b.dataset.view; try{localStorage.setItem('jawda.samples.view',UI.view);}catch(e){} render(); return; }
+  const o=e.target.closest('[data-open]'); if(o) openDrawer(o.dataset.open);
+});
+document.addEventListener('change',async e=>{ const t=e.target; if(t.dataset.set){ const s=S().find(x=>x.id===t.dataset.id); s[t.dataset.set]=t.value||null; t.className=cls(t.value); await M.put('samples',s); } });
+$('fSearch').oninput=e=>{ UI.q=e.target.value; render(); };
+$('fStatus').onchange=e=>{ UI.status=e.target.value; render(); };
+$('fSwatch').onchange=e=>{ UI.swatch=e.target.value; render(); };
+$('btnNew').onclick=()=>newSample();
+
+// collections
+let editingColl=null;
+function openColl(c){ editingColl=c; $('cmTitle').textContent=c?'Edit collection':'New collection'; $('cmName').value=c?.name||''; $('cmLaunch').value=c?.launch||''; $('cmGid').value=c?.tracker_gid?TRACKER+c.tracker_gid:''; $('cmDel').classList.toggle('hidden',!c); $('cmDel').textContent='Delete'; $('collModal').classList.add('on'); $('cmName').focus(); }
+$('cmCancel').onclick=()=>$('collModal').classList.remove('on');
+$('cmSave').onclick=async()=>{ const name=$('cmName').value.trim(); if(!name){ J.toast('Give it a name'); return; }
+  const gm=$('cmGid').value.match(/gid=(\d+)/);
+  const row={...(editingColl||{id:M.uuid(),sort:C().reduce((a,c)=>Math.max(a,c.sort??0),0)+1,archived:false}),name,launch:$('cmLaunch').value.trim()||null,tracker_gid:gm?+gm[1]:(editingColl?.tracker_gid??null)};
+  if(await M.put('sample_collections',row)){ UI.coll=row.id; $('collModal').classList.remove('on'); render(); } };
+$('cmDel').onclick=async()=>{ const n=S().filter(s=>s.collection_id===editingColl.id).length; if(n){ J.toast(`Move or delete its ${n} samples first`); return; }
+  await M.del('sample_collections',editingColl.id); UI.coll=null; $('collModal').classList.remove('on'); render(); };
+$('actEditColl').onclick=()=>openColl(C().find(c=>c.id===UI.coll));
+$('actRefresh').onclick=async()=>{ await M.load(['sample_collections','samples','swatches']); render(); if(UI.open) renderDrawer(); J.toast('Up to date'); };
+$('actCsv').onclick=()=>{ const c=C().find(x=>x.id===UI.coll); J.csv(`jawda-samples-${(c?.name||'').replace(/\W+/g,'-')}.csv`,['Item No','Item Name','Launch Group','Tech Pack Status','Sample Status','Fabric Status','Type','Sizing','Pieces','Detailing','Tech Pack','Tech Pack Link','Swatches','Fabric notes','Colours','Accessories','Accessories quantity','Feedback','Notes + Changes','Notes','Photos'],
+  inColl().map(s=>[s.item_no,s.name,s.launch_group,s.techpack_status,s.sample_status,s.fabric_status,s.type,s.sizing,s.pcs,s.detailing,s.techpack_name,s.techpack_link,(s.swatch_ids||[]).map(i=>sw(i)?.name).join('; '),s.fabric_note,s.colours,s.accessories,s.accessories_qty,s.feedback,s.changes,s.notes,(s.images||[]).length])); };
+
+J.boot(async()=>{
+  await M.load(['sample_collections','samples','swatches']);
+  const p=new URLSearchParams(location.search); UI.coll=p.get('c');
+  const sid=p.get('s'); const s=sid&&S().find(x=>x.id===sid); if(s) UI.coll=s.collection_id;
+  await render(); if(s) openDrawer(s.id);
+  if(J.mode==='remote') J.setSave('Saved');
+});
+</script>
+</body>
+</html>
