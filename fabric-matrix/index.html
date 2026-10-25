@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="description" content="Jawda fabric matrix — which designs can and should be made from each mill fabric.">
+<title>Fabric Matrix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+:root{
+  --pearl:#E5DDD0; --ash:#948A66; --storm:#F7F7F7; --umber:#8A3324; --crater:#401D24;
+  --eagle:#A8A68B; --suede:#4D3B2D;
+  --bg:#EFE9DF; --panel:#F7F3EC; --line:#D9D0C1; --ink:#2B1A1E; --muted:#7A6F63;
+  --radius:12px; --shadow:0 1px 2px rgba(64,29,36,.06),0 6px 18px rgba(64,29,36,.07);
+  --font:'Jost',system-ui,sans-serif; --serif:'Playfair Display',Georgia,serif;
+  --can:#E3E0CF; --can-ink:#4D3B2D; --should:#8A3324;
+  --namew:minmax(180px,1.4fr);
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{font:15px/1.45 var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.hidden{display:none!important}
+
+/* login */
+#login{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--crater);color:var(--pearl)}
+#login .card{width:min(420px,100%);text-align:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:36px 28px 24px;box-shadow:var(--shadow)}
+#login .logo{height:60px;width:auto;display:block;margin:0 auto 10px}
+#login p{color:var(--ash);margin:0 0 26px;letter-spacing:.16em;font-size:11px;text-transform:uppercase}
+#login input{width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--line);background:var(--storm);color:var(--ink);outline:0;font-size:16px}
+#login input:focus{border-color:var(--ash)}
+#login button{width:100%;margin-top:12px;padding:14px;border-radius:10px;background:var(--umber);color:#fff;font-weight:500}
+#login .err{color:var(--umber);margin-top:12px;font-size:14px;min-height:20px}
+
+/* header */
+#app{min-height:100%;display:flex;flex-direction:column}
+header{position:sticky;top:0;z-index:20;background:var(--crater);color:var(--pearl);padding:0 clamp(12px,3vw,32px);display:flex;align-items:center;gap:14px;height:60px}
+header .brand{display:flex;align-items:center;gap:10px}
+header .brand .logo{height:26px;width:auto;display:block}
+header .brand span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--eagle)}
+header .grow{flex:1}
+.hbtn{text-decoration:none;padding:8px 14px;border-radius:999px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.hbtn.ghost{color:var(--pearl);border:1px solid rgba(229,221,208,.3)}
+.hbtn.ghost:hover{background:rgba(229,221,208,.1)}
+.save-state{font-size:12px;color:var(--eagle);white-space:nowrap}
+.menu{position:relative}
+.menu .dd{position:absolute;right:0;top:calc(100% + 8px);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-width:220px;padding:6px;display:none;z-index:30}
+.menu.open .dd{display:block}
+.menu .dd button,.menu .dd a{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:7px;font-size:14px;text-decoration:none;color:inherit}
+.menu .dd button:hover,.menu .dd a:hover{background:var(--pearl)}
+.menu .dd hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+
+/* filters + key */
+#filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px clamp(12px,3vw,32px);background:var(--panel);border-bottom:1px solid var(--line)}
+#filters input[type=search]{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;outline:0;font-size:14px;min-width:200px;flex:1;max-width:320px}
+#filters input:focus{border-color:var(--ash)}
+.chip{padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:500;color:var(--muted)}
+.chip.on{background:var(--crater);border-color:var(--crater);color:var(--pearl)}
+#filters .count{margin-left:auto;color:var(--muted);font-size:13px}
+
+main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;margin:0 auto}
+.intro{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch;margin:0 0 20px}
+.intro h1{font-family:var(--serif);font-style:italic;font-weight:500;font-size:30px;letter-spacing:-.02em;margin:0 0 4px;color:var(--crater)}
+.intro .lede{color:var(--muted);font-size:14px;max-width:520px;margin:0}
+.intro .left{flex:1 1 320px}
+.key{flex:1 1 380px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.key h2{margin:0 0 10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.key ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.key li{display:flex;align-items:center;gap:12px;font-size:14px}
+.key li .sw{flex:none;width:140px;white-space:nowrap}
+.key li small{color:var(--muted);display:block;font-size:12px;line-height:1.35}
+
+/* matrix */
+.mx{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:clip}
+.row{display:grid;grid-template-columns:var(--namew) repeat(4,minmax(0,1fr));align-items:stretch;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row.head{position:sticky;top:60px;z-index:10;background:var(--crater);color:var(--pearl);border-bottom:0}
+.row.head>div{padding:12px 10px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+.row.head .fname{font-weight:600;font-size:14px;line-height:1.25}
+.row.head .fsub{font-size:11px;color:var(--eagle);line-height:1.3}
+.row.head .ftally{font-size:11px;color:var(--pearl);opacity:.85;margin-top:4px;font-variant-numeric:tabular-nums}
+.row.head .corner{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--eagle);justify-content:flex-end}
+.ghead{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff8;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.ghead .caret{font-size:11px;color:var(--muted);width:10px;transition:.15s}
+.grp.closed .ghead .caret{transform:rotate(-90deg)}
+.grp.closed .gbody{display:none}
+.ghead .gt{font-family:var(--serif);font-style:italic;font-weight:500;font-size:17px;color:var(--crater)}
+.ghead .gd{font-size:12px;color:var(--muted)}
+.ghead .gn{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.grp{border-bottom:1px solid var(--line)}
+.grp:last-child{border-bottom:0}
+.dname{padding:10px 14px;display:flex;flex-direction:column;justify-content:center;min-width:0;background:#fff6}
+.dname .t{font-weight:500;line-height:1.3}
+.dname .a{font-size:12px;color:var(--muted);line-height:1.3}
+.cell{border-left:1px solid var(--line);padding:6px;display:flex;align-items:center;justify-content:center;position:relative;min-height:52px}
+.cell button{width:100%;height:100%;min-height:38px;border-radius:9px;border:1px dashed transparent;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;transition:background .12s,border-color .12s,color .12s}
+.cell button:hover{border-color:var(--eagle);background:#fff}
+.cell button:focus-visible{outline:2px solid var(--ash);outline-offset:1px}
+.cell button .lab{display:inline}
+.st1 button{background:var(--can);color:var(--can-ink);border:1px solid #CFCAB2}
+.st1 button:hover{background:#DAD6C0}
+.st2 button{background:var(--should);color:#fff;border:1px solid var(--should)}
+.st2 button:hover{background:#7A2C1F}
+.run{position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--crater);box-shadow:0 0 0 2px var(--panel);pointer-events:none}
+.st2 .run{background:var(--pearl);box-shadow:0 0 0 2px var(--should)}
+.sw{display:flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;position:relative}
+.sw.e{border:1px dashed var(--eagle);color:var(--muted);background:#fff}
+.sw.c{background:var(--can);color:var(--can-ink);border:1px solid #CFCAB2}
+.sw.s{background:var(--should);color:#fff}
+.sw.r{background:#fff;border:1px solid var(--line);color:var(--muted)}
+.sw.r i{width:7px;height:7px;border-radius:50%;background:var(--crater);display:inline-block}
+.empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:14px}
+.banner{background:#FBF3E4;border:1px solid #E7D3AE;color:var(--suede);border-radius:10px;padding:10px 14px;font-size:13px;margin:0 0 14px}
+.banner code{background:#fff;padding:1px 5px;border-radius:4px;font-size:12px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--crater);color:var(--pearl);padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;z-index:60;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1;transform:translateX(-50%)}
+
+@media (max-width:860px){
+  header{height:54px;padding:0 12px;gap:8px}
+  header .brand .logo{height:22px}
+  .row.head{top:54px}
+  .save-state{display:none}
+  :root{--namew:minmax(110px,1.1fr)}
+  .row.head>div{padding:10px 6px}
+  .row.head .fname{font-size:12px}
+  .row.head .fsub{display:none}
+  .dname{padding:8px 10px}
+  .dname .t{font-size:13px}
+  .dname .a{display:none}
+  .cell{padding:4px;min-height:46px}
+  .cell button .lab{display:none}
+  .cell button{min-height:34px;font-size:15px}
+  .ghead .gd{display:none}
+  .intro h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Fabric matrix</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <div class="brand"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Fabric Matrix</span></div>
+    <div class="grow"></div>
+    <span class="save-state" id="saveState"></span>
+    <a class="hbtn ghost" href="../">Board</a>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export matrix to CSV</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="filters">
+    <input type="search" id="fSearch" placeholder="Search designs…">
+    <button class="chip" id="fMarked">Marked only</button>
+    <button class="chip" id="fShould">Should be made</button>
+    <button class="chip" id="fExpand">Collapse all</button>
+    <span class="count" id="fCount"></span>
+  </div>
+
+  <main>
+    <div id="banner"></div>
+    <div class="intro">
+      <div class="left">
+        <h1>Fabric matrix</h1>
+        <p class="lede">Every design we've made in Bangladesh, against the four mill fabrics. Click a square to mark what each fabric can be used for, and what we should make from it.</p>
+      </div>
+      <div class="key" aria-label="Key">
+        <h2>Key</h2>
+        <ul>
+          <li><span class="sw e">Click</span><div>Not marked<small>Click once to mark it.</small></div></li>
+          <li><span class="sw c">✓ Can be made</span><div>One click<small>The design works in this fabric.</small></div></li>
+          <li><span class="sw s">★ Should be made</span><div>Two clicks<small>We should make it in this fabric. A third click clears it.</small></div></li>
+          <li><span class="sw r"><i></i> On a run</span><div>Dot in the corner<small>Already made, or planned, in this fabric on the production lists.</small></div></li>
+        </ul>
+      </div>
+    </div>
+    <div class="mx" id="mx"></div>
+  </main>
+</section>
+<div id="toast"></div>
+
+<script>
+// ---------- data ----------
+const FABRICS = [
+  {id:'stripe', name:'Striped Cotton', sub:'100% cotton · Ecru White, Brown, Olive'},
+  {id:'sadia',  name:'Sadia / Wavy Cotton Tencel', sub:'62% Tencel 38% cotton · Black, Espresso, Tea Leaf, Moonbeam'},
+  {id:'n01130', name:'New Cotton Tencel', sub:'Nice 01130 · Black, Green, Navy, TBC'},
+  {id:'nice',   name:'Nice Heavy Cotton', sub:'100% cotton · Ecru, Black, Mocha, Olive, Navy'},
+];
+// runs: fabrics this design is already made / planned in on the production lists
+const COLLECTIONS = [
+ {id:'ss26-1', name:'SS26 Part 1', when:'April 2026', designs:[
+  ['Kimono Abaya','Striped',['stripe']],
+  ['Wrap Skirt','',[]],
+  ['Wavy Open Abaya','',['sadia']],
+  ['Collar Abaya','',[]],
+  ['Wrap Abaya & Skirt Two-Piece Set','',['stripe']],
+  ['Wrap Top','',['nice']],
+  ['Linen Trousers','',[]],
+  ['Split Neck Top','From the Top & Palazzo set',[]],
+  ['Wide Leg Trousers','Palazzo / Notch Collar Bottom',[]],
+  ['Linen Skirt','Shopify: Long Skirt',[]],
+ ]},
+ {id:'ss26-2', name:'SS26 Part 2', when:'May 2026', designs:[
+  ['Blazer Corset Dress','',[]],
+  ['Piping Abaya','',[]],
+  ['Kaftan Abaya','',[]],
+  ['Umbrella Sleeve Abaya','Crepe (SS26 version)',[]],
+  ['Umbrella Sleeve Top','',[]],
+  ['Side Wrap Two-Piece Set','',[]],
+  ['Side Wrap Abaya','',[]],
+  ['Elasticated Skirt','',['nice']],
+  ['Two-Side Tie Top','',[]],
+  ['Eight-Panel Skirt','',[]],
+ ]},
+ {id:'sum-1', name:'Summer Part 1', when:'June 2026', designs:[
+  ['Button Sleeve Abaya','',['nice']],
+  ['Notch Collar Top','',[]],
+  ['Ruched Slit Dress','',['nice']],
+  ['Pleated Tie Dress','',[]],
+  ['Tassel Abaya','',[]],
+ ]},
+ {id:'sum-2', name:'Summer Part 2', when:'July 2026', designs:[
+  ['Etched Crepe Lace Abaya','',[]],
+  ['Etched Crepe Lace Top','',[]],
+  ['Etched Crepe Lace Skirt','',[]],
+  ['Front Slit Dress','',[]],
+  ['Print Abaya','',[]],
+  ['Print Top','',[]],
+  ['Shirt Abaya','',['sadia']],
+ ]},
+ {id:'aut-1', name:'Autumn Part 1', when:'September 2026', designs:[
+  ['Tie Front Abaya','Amal Pleated Abaya',['nice']],
+  ['Lantern Sleeve Top','',[]],
+  ['Grounded Wrap Dress','',[]],
+  ['Frog Button Open Abaya','',[]],
+  ['Mock Neck Jumper Abaya','',[]],
+  ['Covered Button Jacket','Suede / vegan leather',[]],
+  ['Pleated Trousers','',[]],
+  ['Collar Top','',[]],
+ ]},
+ {id:'aut-2', name:'Autumn Part 2', when:'September 2026', designs:[
+  ['Layered Two-Piece Abaya','',['stripe']],
+  ['Bishop Sleeve Abaya','Celest',[]],
+  ['Two-Side Tie Dress','',['stripe']],
+  ['Covered Button Open Abaya','',[]],
+  ['Tie Shirt Dress','Tailored Shirt Dress',[]],
+  ['Mandarin Two-Piece Dress','Zenith',[]],
+  ['Covered Button Top','',[]],
+  ['Covered Button Skirt','',[]],
+ ]},
+ {id:'win-1', name:'Winter Part 1', when:'November 2026', designs:[
+  ['Cotton Swing Coat','',[]],
+  ['A-line Maxi Skirt','',['nice']],
+  ['Balloon Sleeve Abaya','',['sadia']],
+  ['Asymmetric Wrap Collar Abaya','',[]],
+  ['Welt Pocket Dress','',[]],
+  ['Double Button Shirt','',['nice']],
+ ]},
+ {id:'win-2', name:'Winter Part 2', when:'December 2026', designs:[
+  ['Belted Blazer','',[]],
+  ['Side Seam Pleat Trouser','',['sadia']],
+  ['Kimono High Neck Abaya','',['nice']],
+  ['Square Neckline Abaya','',['sadia']],
+  ['Asymmetric Drape Dress','',['sadia']],
+  ['Mock Neck Jacket','',[]],
+ ]},
+ {id:'ram-27', name:'Ramadan 27', when:'January 2027', designs:[
+  ['Umbrella Sleeve Abaya (Ramadan)','New design',['sadia']],
+  ['Balloon Sleeve with Covered Buttons Abaya','',['sadia']],
+  ['Balloon Sleeve with Piping Abaya','',['sadia']],
+  ['Blazer Abaya','',['n01130']],
+  ['Corset Top','',['n01130']],
+  ['Shirt & Skirt Two-Piece Set','',['n01130']],
+ ]},
+];
+const slug=s=>s.toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+COLLECTIONS.forEach(c=>c.designs=c.designs.map(([name,alias,runs])=>({id:c.id+'.'+slug(name),name,alias,runs})));
+const LABEL={1:'✓ <span class="lab">Can be made</span>',2:'★ <span class="lab">Should be made</span>'};
+
+// ---------- state / storage ----------
+const $=id=>document.getElementById(id);
+const CFG=window.JAWDA_CONFIG||{};
+const LS_KEY='jfm.cells';
+let sb=null, mode='local'; // 'remote' when Supabase table is reachable
+const S={
+  cells:{}, // "designId|fabricId" -> 1|2
+  q:'', marked:false, should:false,
+  closed:new Set(safeJSON(localGet('jfm.closed'),[])),
+};
+function localGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function localSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function safeJSON(s,d){try{return s?JSON.parse(s):d}catch(e){return d}}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
+function setSave(m){$('saveState').textContent=m}
+
+async function boot(){
+  if(window.supabase && CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY){
+    sb=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){ $('login').classList.remove('hidden'); $('pw').focus(); return; }
+    await startApp();
+  } else { await startApp(); }
+}
+$('loginForm').onsubmit=async e=>{
+  e.preventDefault(); $('loginErr').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:CFG.LOGIN_EMAIL,password:$('pw').value});
+  if(error){ $('loginErr').textContent='That password didn\'t work.'; return; }
+  $('login').classList.add('hidden'); await startApp();
+};
+async function startApp(){
+  $('app').classList.remove('hidden');
+  await load(); render();
+}
+async function load(){
+  if(sb){
+    const {data,error}=await sb.from('fabric_matrix').select('design_id,fabric_id,state');
+    if(!error){
+      mode='remote'; S.cells={};
+      data.forEach(r=>S.cells[r.design_id+'|'+r.fabric_id]=r.state);
+      $('banner').innerHTML=''; setSave('Saved for the team');
+      return;
+    }
+  }
+  mode='local';
+  S.cells=safeJSON(localGet(LS_KEY),{});
+  $('banner').innerHTML = sb
+    ? '<div class="banner">Marks are saving on this device only. To share them with the team, run <code>fabric-matrix/setup.sql</code> once in Supabase → SQL Editor, then refresh.</div>'
+    : '<div class="banner">Marks are saving on this device only.</div>';
+  setSave('Saved on this device');
+}
+async function setCell(did,fid,state){
+  const k=did+'|'+fid, prev=S.cells[k]||0;
+  if(state) S.cells[k]=state; else delete S.cells[k];
+  render();
+  if(mode==='remote'){
+    setSave('Saving…');
+    const q = state
+      ? sb.from('fabric_matrix').upsert({design_id:did,fabric_id:fid,state,updated_at:new Date().toISOString()})
+      : sb.from('fabric_matrix').delete().eq('design_id',did).eq('fabric_id',fid);
+    const {error}=await q;
+    if(error){ if(prev) S.cells[k]=prev; else delete S.cells[k]; render(); setSave('Not saved'); toast('Couldn\'t save – check your connection'); return; }
+    setSave('Saved for the team');
+  } else {
+    localSet(LS_KEY,JSON.stringify(S.cells));
+  }
+}
+
+// ---------- render ----------
+function matches(d){
+  if(S.q){ const q=S.q.toLowerCase(); if(!(d.name+' '+d.alias).toLowerCase().includes(q)) return false; }
+  const st=FABRICS.map(f=>S.cells[d.id+'|'+f.id]||0);
+  if(S.should && !st.includes(2)) return false;
+  if(S.marked && !st.some(Boolean)) return false;
+  return true;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function render(){
+  const tally=FABRICS.map(f=>{let c=0,s=0;COLLECTIONS.forEach(col=>col.designs.forEach(d=>{const v=S.cells[d.id+'|'+f.id];if(v===1)c++;if(v===2)s++;}));return {c,s}});
+  let html=`<div class="row head"><div class="corner">Design</div>${FABRICS.map((f,i)=>`<div><span class="fname">${esc(f.name)}</span><span class="fsub">${esc(f.sub)}</span><span class="ftally">${tally[i].s} should · ${tally[i].c} can</span></div>`).join('')}</div>`;
+  let shown=0,total=0;
+  COLLECTIONS.forEach(col=>{
+    const ds=col.designs.filter(matches); total+=col.designs.length; shown+=ds.length;
+    if(!ds.length) return;
+    const closed=S.closed.has(col.id) && !S.q;
+    html+=`<div class="grp${closed?' closed':''}"><div class="ghead" data-g="${col.id}"><span class="caret">▾</span><span class="gt">${esc(col.name)}</span><span class="gd">${esc(col.when)}</span><span class="gn">${ds.length} design${ds.length>1?'s':''}</span></div><div class="gbody">`;
+    ds.forEach(d=>{
+      html+=`<div class="row"><div class="dname"><span class="t">${esc(d.name)}</span>${d.alias?`<span class="a">${esc(d.alias)}</span>`:''}</div>`;
+      FABRICS.forEach(f=>{
+        const v=S.cells[d.id+'|'+f.id]||0, run=d.runs.includes(f.id);
+        const lbl=v?LABEL[v]:'';
+        const aria=`${d.name} in ${f.name}: ${v===2?'should be made':v===1?'can be made':'not marked'}${run?', already on a run':''}`;
+        html+=`<div class="cell st${v}">${run?'<span class="run" title="Already on a run in this fabric"></span>':''}<button data-d="${d.id}" data-f="${f.id}" aria-label="${esc(aria)}" title="${esc(aria)}">${lbl}</button></div>`;
+      });
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  if(!shown) html+='<div class="empty">No designs match.</div>';
+  $('mx').innerHTML=html;
+  $('fCount').textContent=`${shown} of ${total} designs`;
+  $('fExpand').textContent = S.closed.size ? 'Expand all' : 'Collapse all';
+}
+
+// ---------- events ----------
+$('mx').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-d]');
+  if(b){ const k=b.dataset.d+'|'+b.dataset.f; const next=((S.cells[k]||0)+1)%3; setCell(b.dataset.d,b.dataset.f,next); return; }
+  const g=e.target.closest('[data-g]');
+  if(g){ const id=g.dataset.g; S.closed.has(id)?S.closed.delete(id):S.closed.add(id); localSet('jfm.closed',JSON.stringify([...S.closed])); render(); }
+});
+$('fSearch').oninput=e=>{S.q=e.target.value.trim();render()};
+$('fMarked').onclick=()=>{S.marked=!S.marked;$('fMarked').classList.toggle('on',S.marked);render()};
+$('fShould').onclick=()=>{S.should=!S.should;$('fShould').classList.toggle('on',S.should);render()};
+$('fExpand').onclick=()=>{ if(S.closed.size) S.closed.clear(); else COLLECTIONS.forEach(c=>S.closed.add(c.id)); localSet('jfm.closed',JSON.stringify([...S.closed])); render(); };
+$('btnData').onclick=e=>{e.stopPropagation();$('dataMenu').classList.toggle('open')};
+document.addEventListener('click',()=>$('dataMenu').classList.remove('open'));
+$('actRefresh').onclick=async()=>{await load();render();toast('Refreshed')};
+$('actCsv').onclick=()=>{
+  const lines=[['Collection','Design','Also known as',...FABRICS.map(f=>f.name)].join(',')];
+  const word=v=>v===2?'Should be made':v===1?'Can be made':'';
+  COLLECTIONS.forEach(c=>c.designs.forEach(d=>lines.push([c.name,d.name,d.alias,...FABRICS.map(f=>word(S.cells[d.id+'|'+f.id]||0))].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(','))));
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='jawda-fabric-matrix.csv'; a.click();
+};
+$('actSignout').onclick=async()=>{ if(sb) await sb.auth.signOut(); location.reload(); };
+window.addEventListener('focus',async()=>{ if(mode==='remote'){ await load(); render(); } });
+
+boot();
+</script>
+</body>
+</html>
