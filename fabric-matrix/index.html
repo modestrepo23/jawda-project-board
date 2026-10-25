@@ -17,7 +17,7 @@
   --bg:#EFE9DF; --panel:#F7F3EC; --line:#D9D0C1; --ink:#2B1A1E; --muted:#7A6F63;
   --radius:12px; --shadow:0 1px 2px rgba(64,29,36,.06),0 6px 18px rgba(64,29,36,.07);
   --font:'Jost',system-ui,sans-serif; --serif:'Playfair Display',Georgia,serif;
-  --can:#E3E0CF; --can-ink:#4D3B2D; --should:#8A3324;
+  --ready:#4E7247; --needs:#B5884A; --can:#E3E0CF; --can-ink:#4D3B2D; --should:#8A3324;
   --namew:minmax(180px,1.4fr);
 }
 *{box-sizing:border-box} html,body{margin:0;height:100%}
@@ -115,11 +115,23 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
 .st2 button{background:var(--should);color:#fff;border:1px solid var(--should)}
 .st2 button:hover{background:#7A2C1F}
 .run{position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--crater);box-shadow:0 0 0 2px var(--panel);pointer-events:none}
+.cell.st1,.cell.st2{padding-bottom:14px}
+.smp{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);z-index:2;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer;border:1px solid transparent;line-height:1.5;box-shadow:0 1px 2px rgba(64,29,36,.12)}
+.smp.s0{background:#fff;color:var(--muted);border:1px dashed var(--eagle);opacity:0;box-shadow:none}
+.cell:hover .smp.s0,.smp.s0:focus-visible{opacity:1}
+.smp.s1{background:var(--ready);color:#fff}
+.smp.s2{background:var(--needs);color:#fff}
+.smp:hover{filter:brightness(1.07)}
+.smp:focus-visible{outline:2px solid var(--ash);outline-offset:1px}
+@media (hover:none){ .smp.s0{opacity:.75} }
 .st2 .run{background:var(--pearl);box-shadow:0 0 0 2px var(--should)}
 .sw{display:flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;position:relative}
 .sw.e{border:1px dashed var(--eagle);color:var(--muted);background:#fff}
 .sw.c{background:var(--can);color:var(--can-ink);border:1px solid #CFCAB2}
 .sw.s{background:var(--should);color:#fff}
+.sw.sr{background:var(--ready);color:#fff;border-radius:999px;height:24px;width:auto!important;padding:0 10px}
+.sw.sn{background:var(--needs);color:#fff;border-radius:999px;height:24px;width:auto!important;padding:0 10px}
+.key li .swrap{flex:none;width:140px;display:flex;justify-content:center}
 .sw.r{background:#fff;border:1px solid var(--line);color:var(--muted)}
 .sw.r i{width:7px;height:7px;border-radius:50%;background:var(--crater);display:inline-block}
 .empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:14px}
@@ -142,6 +154,9 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
   .dname .a{display:none}
   .cell{padding:4px;min-height:46px}
   .cell button .lab{display:none}
+  .smp .sl{display:none}
+  .row.head .ftally+.ftally{display:none}
+  .smp{padding:1px 6px}
   .cell button{min-height:34px;font-size:15px}
   .ghead .gd{display:none}
   .intro h1{font-size:24px}
@@ -180,6 +195,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
   <div id="filters">
     <input type="search" id="fSearch" placeholder="Search designs…">
     <select id="fFabric" aria-label="Show designs eligible for a fabric"><option value="">All fabrics</option></select>
+    <select id="fSample" aria-label="Sample status"><option value="">Any sample status</option><option value="1">Sample ready</option><option value="2">Needs to be sampled</option><option value="0">Sample not set</option></select>
     <button class="chip" id="fMarked">Marked only</button>
     <button class="chip" id="fShould">Should be made</button>
     <button class="chip" id="fExpand">Collapse all</button>
@@ -191,7 +207,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
     <div class="intro">
       <div class="left">
         <h1>Fabric matrix</h1>
-        <p class="lede">Every design we've made in Bangladesh, against the four mill fabrics. Click a square to mark what each fabric can be used for, and what we should make from it. Click a fabric's heading to see only the designs eligible for it.</p>
+        <p class="lede">Every design we've made in Bangladesh, against the four mill fabrics. Click a square to mark what each fabric can be used for, and what we should make from it. Click a fabric's heading to see only the designs eligible for it. Use the small tag under a marked square to note whether it's been sampled.</p>
       </div>
       <div class="key" aria-label="Key">
         <h2>Key</h2>
@@ -199,6 +215,8 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
           <li><span class="sw e">Click</span><div>Not marked<small>Click once to mark it.</small></div></li>
           <li><span class="sw c">✓ Can be made</span><div>One click<small>The design works in this fabric.</small></div></li>
           <li><span class="sw s">★ Should be made</span><div>Two clicks<small>We should make it in this fabric. A third click clears it.</small></div></li>
+          <li><span class="swrap"><span class="sw sr">● Sample ready</span></span><div>Sample toggle, once<small>Click the small tag under a marked square. The sample is done and approved.</small></div></li>
+          <li><span class="swrap"><span class="sw sn">◌ Needs sample</span></span><div>Sample toggle, twice<small>It needs to be sampled in this fabric first. A third click clears it.</small></div></li>
           <li><span class="sw r"><i></i> On a run</span><div>Dot in the corner<small>Already made, or planned, in this fabric on the production lists.</small></div></li>
         </ul>
       </div>
@@ -310,9 +328,10 @@ const LABEL={1:'✓ <span class="lab">Can be made</span>',2:'★ <span class="la
 // ---------- state / storage ----------
 const $=id=>document.getElementById(id);
 const CFG=window.JAWDA_CONFIG||{};
-const LS_KEY='jfm.cells';
+const LS_KEY='jfm.cells', LS_SAMP='jfm.samp';
 let sb=null, mode='local'; // 'remote' when Supabase table is reachable
 const S={
+  samp:{}, sf:'',
   cells:{}, // "designId|fabricId" -> 1|2
   q:'', marked:false, should:false, fab:localGet('jfm.fab')||'',
   closed:new Set(safeJSON(localGet('jfm.closed'),[])),
@@ -343,42 +362,59 @@ async function startApp(){
 }
 async function load(){
   if(sb){
-    const {data,error}=await sb.from('fabric_matrix').select('design_id,fabric_id,state');
+    let {data,error}=await sb.from('fabric_matrix').select('design_id,fabric_id,state,sample');
+    S.hasSample=!error;
+    if(error){ ({data,error}=await sb.from('fabric_matrix').select('design_id,fabric_id,state')); }
     if(!error){
-      mode='remote'; S.cells={};
-      data.forEach(r=>S.cells[r.design_id+'|'+r.fabric_id]=r.state);
+      mode='remote'; S.cells={}; S.samp={};
+      data.forEach(r=>{const k=r.design_id+'|'+r.fabric_id; S.cells[k]=r.state; if(r.sample) S.samp[k]=r.sample;});
       $('banner').innerHTML=''; setSave('Saved for the team');
       return;
     }
   }
   mode='local';
-  S.cells=safeJSON(localGet(LS_KEY),{});
+  S.cells=safeJSON(localGet(LS_KEY),{}); S.samp=safeJSON(localGet(LS_SAMP),{});
   $('banner').innerHTML = sb
     ? '<div class="banner">Marks are saving on this device only. To share them with the team, run <code>fabric-matrix/setup.sql</code> once in Supabase → SQL Editor, then refresh.</div>'
     : '<div class="banner">Marks are saving on this device only.</div>';
   setSave('Saved on this device');
 }
 async function setCell(did,fid,state){
-  const k=did+'|'+fid, prev=S.cells[k]||0;
-  if(state) S.cells[k]=state; else delete S.cells[k];
+  const k=did+'|'+fid, prev=S.cells[k]||0, prevS=S.samp[k]||0;
+  if(state) S.cells[k]=state; else { delete S.cells[k]; delete S.samp[k]; }
   render();
   if(mode==='remote'){
     setSave('Saving…');
     const q = state
-      ? sb.from('fabric_matrix').upsert({design_id:did,fabric_id:fid,state,updated_at:new Date().toISOString()})
+      ? sb.from('fabric_matrix').upsert(Object.assign({design_id:did,fabric_id:fid,state,updated_at:new Date().toISOString()}, S.hasSample?{sample:S.samp[k]||null}:{}))
       : sb.from('fabric_matrix').delete().eq('design_id',did).eq('fabric_id',fid);
     const {error}=await q;
-    if(error){ if(prev) S.cells[k]=prev; else delete S.cells[k]; render(); setSave('Not saved'); toast('Couldn\'t save – check your connection'); return; }
+    if(error){ if(prev) S.cells[k]=prev; else delete S.cells[k]; if(prevS) S.samp[k]=prevS; render(); setSave('Not saved'); toast('Couldn\'t save – check your connection'); return; }
     setSave('Saved for the team');
   } else {
-    localSet(LS_KEY,JSON.stringify(S.cells));
+    localSet(LS_KEY,JSON.stringify(S.cells)); localSet(LS_SAMP,JSON.stringify(S.samp));
   }
+}
+async function setSample(did,fid,v){
+  const k=did+'|'+fid, prev=S.samp[k]||0, state=S.cells[k]||0;
+  if(!state) return;
+  if(v) S.samp[k]=v; else delete S.samp[k];
+  render();
+  if(mode==='remote'){
+    if(!S.hasSample){ toast('Sample tags need a one-time database update'); S.samp[k]=prev||undefined; if(!prev) delete S.samp[k]; render(); return; }
+    setSave('Saving…');
+    const {error}=await sb.from('fabric_matrix').update({sample:v||null,updated_at:new Date().toISOString()}).eq('design_id',did).eq('fabric_id',fid);
+    if(error){ if(prev) S.samp[k]=prev; else delete S.samp[k]; render(); setSave('Not saved'); toast('Couldn\'t save – check your connection'); return; }
+    setSave('Saved for the team');
+  } else localSet(LS_SAMP,JSON.stringify(S.samp));
 }
 
 // ---------- render ----------
 function matches(d){
   if(S.q){ const q=S.q.toLowerCase(); if(!(d.name+' '+d.alias).toLowerCase().includes(q)) return false; }
-  if(S.fab){ const v=S.cells[d.id+'|'+S.fab]||0; if(!v) return false; if(S.should && v!==2) return false; return true; }
+  const sOK=k=>S.sf===''||((S.cells[k]||0)>0 && String(S.samp[k]||0)===S.sf);
+  if(S.fab){ const k=d.id+'|'+S.fab, v=S.cells[k]||0; if(!v) return false; if(S.should && v!==2) return false; return sOK(k); }
+  if(S.sf!=='' && !FABRICS.some(f=>sOK(d.id+'|'+f.id))) return false;
   const st=FABRICS.map(f=>S.cells[d.id+'|'+f.id]||0);
   if(S.should && !st.includes(2)) return false;
   if(S.marked && !st.some(Boolean)) return false;
@@ -386,8 +422,8 @@ function matches(d){
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function render(){
-  const tally=FABRICS.map(f=>{let c=0,s=0;COLLECTIONS.forEach(col=>col.designs.forEach(d=>{const v=S.cells[d.id+'|'+f.id];if(v===1)c++;if(v===2)s++;}));return {c,s}});
-  let html=`<div class="row head"><div class="corner">Design</div>${FABRICS.map((f,i)=>`<div class="fh${S.fab===f.id?' on':''}" data-fab="${f.id}" title="${S.fab===f.id?'Show all designs':'Show only designs that can or should be made in '+esc(f.name)}"><span class="fname">${esc(f.name)}</span><span class="fsub">${esc(f.sub)}</span><span class="ftally">${tally[i].s} should · ${tally[i].c} can</span><span class="fbtn">${S.fab===f.id?'✕ Showing only':'Filter'}</span></div>`).join('')}</div>`;
+  const tally=FABRICS.map(f=>{let c=0,s=0,r=0,n=0;COLLECTIONS.forEach(col=>col.designs.forEach(d=>{const k=d.id+'|'+f.id,v=S.cells[k];if(v===1)c++;if(v===2)s++;if(v&&S.samp[k]===1)r++;if(v&&S.samp[k]===2)n++;}));return {c,s,r,n}});
+  let html=`<div class="row head"><div class="corner">Design</div>${FABRICS.map((f,i)=>`<div class="fh${S.fab===f.id?' on':''}" data-fab="${f.id}" title="${S.fab===f.id?'Show all designs':'Show only designs that can or should be made in '+esc(f.name)}"><span class="fname">${esc(f.name)}</span><span class="fsub">${esc(f.sub)}</span><span class="ftally">${tally[i].s} should · ${tally[i].c} can</span><span class="ftally">${tally[i].r} sample ready · ${tally[i].n} to sample</span><span class="fbtn">${S.fab===f.id?'✕ Showing only':'Filter'}</span></div>`).join('')}</div>`;
   let shown=0,total=0;
   COLLECTIONS.forEach(col=>{
     const ds=col.designs.filter(matches); total+=col.designs.length; shown+=ds.length;
@@ -397,10 +433,11 @@ function render(){
     ds.forEach(d=>{
       html+=`<div class="row"><div class="dname"><span class="t">${esc(d.name)}</span>${d.alias?`<span class="a">${esc(d.alias)}</span>`:''}</div>`;
       FABRICS.forEach(f=>{
-        const v=S.cells[d.id+'|'+f.id]||0, run=d.runs.includes(f.id);
+        const k=d.id+'|'+f.id, v=S.cells[k]||0, run=d.runs.includes(f.id), sm=v?(S.samp[k]||0):0;
         const lbl=v?LABEL[v]:'';
-        const aria=`${d.name} in ${f.name}: ${v===2?'should be made':v===1?'can be made':'not marked'}${run?', already on a run':''}`;
-        html+=`<div class="cell st${v}${S.fab===f.id?' focus':''}">${run?'<span class="run" title="Already on a run in this fabric"></span>':''}<button data-d="${d.id}" data-f="${f.id}" aria-label="${esc(aria)}" title="${esc(aria)}">${lbl}</button></div>`;
+        const aria=`${d.name} in ${f.name}: ${v===2?'should be made':v===1?'can be made':'not marked'}${sm===1?', sample ready':sm===2?', needs to be sampled':''}${run?', already on a run':''}`;
+        const smpHtml = v ? `<span class="smp s${sm}" role="button" tabindex="0" data-sd="${d.id}" data-sf="${f.id}" title="${sm===1?'Sample ready – click to mark as needs sampling':sm===2?'Needs to be sampled – click to clear':'Set sample status'}">${sm===1?'● <span class="sl">Sample ready</span>':sm===2?'◌ <span class="sl">Needs sample</span>':'+ <span class="sl">Sample</span>'}</span>` : '';
+        html+=`<div class="cell st${v}${S.fab===f.id?' focus':''}">${run?'<span class="run" title="Already on a run in this fabric"></span>':''}<button data-d="${d.id}" data-f="${f.id}" aria-label="${esc(aria)}" title="${esc(aria)}">${lbl}</button>${smpHtml}</div>`;
       });
       html+='</div>';
     });
@@ -419,11 +456,14 @@ FABRICS.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.text
 $('fFabric').onchange=e=>{S.fab=e.target.value;localSet('jfm.fab',S.fab);render();};
 $('mx').addEventListener('click',e=>{
   const fh=e.target.closest('[data-fab]'); if(fh){ setFab(fh.dataset.fab); return; }
+  const sp=e.target.closest('[data-sd]'); if(sp){ const k=sp.dataset.sd+'|'+sp.dataset.sf; setSample(sp.dataset.sd,sp.dataset.sf,((S.samp[k]||0)+1)%3); return; }
   const b=e.target.closest('button[data-d]');
   if(b){ const k=b.dataset.d+'|'+b.dataset.f; const next=((S.cells[k]||0)+1)%3; setCell(b.dataset.d,b.dataset.f,next); return; }
   const g=e.target.closest('[data-g]');
   if(g){ const id=g.dataset.g; S.closed.has(id)?S.closed.delete(id):S.closed.add(id); localSet('jfm.closed',JSON.stringify([...S.closed])); render(); }
 });
+$('mx').addEventListener('keydown',e=>{ const sp=e.target.closest('[data-sd]'); if(sp&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); sp.click(); } });
+$('fSample').onchange=e=>{S.sf=e.target.value; e.target.classList.toggle('on',S.sf!==''); render();};
 $('fSearch').oninput=e=>{S.q=e.target.value.trim();render()};
 $('fMarked').onclick=()=>{S.marked=!S.marked;$('fMarked').classList.toggle('on',S.marked);render()};
 $('fShould').onclick=()=>{S.should=!S.should;$('fShould').classList.toggle('on',S.should);render()};
@@ -433,8 +473,8 @@ document.addEventListener('click',()=>$('dataMenu').classList.remove('open'));
 $('actRefresh').onclick=async()=>{await load();render();toast('Refreshed')};
 $('actCsv').onclick=()=>{
   const lines=[['Collection','Design','Also known as',...FABRICS.map(f=>f.name)].join(',')];
-  const word=v=>v===2?'Should be made':v===1?'Can be made':'';
-  COLLECTIONS.forEach(c=>c.designs.forEach(d=>lines.push([c.name,d.name,d.alias,...FABRICS.map(f=>word(S.cells[d.id+'|'+f.id]||0))].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(','))));
+  const word=k=>{const v=S.cells[k]||0; if(!v) return ''; const sm=S.samp[k]||0; return (v===2?'Should be made':'Can be made')+(sm===1?' – Sample ready':sm===2?' – Needs to be sampled':'');};
+  COLLECTIONS.forEach(c=>c.designs.forEach(d=>lines.push([c.name,d.name,d.alias,...FABRICS.map(f=>word(d.id+'|'+f.id))].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(','))));
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='jawda-fabric-matrix.csv'; a.click();
 };
 $('actSignout').onclick=async()=>{ if(sb) await sb.auth.signOut(); location.reload(); };
