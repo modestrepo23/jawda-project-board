@@ -40,6 +40,25 @@ tr.dh .dname{font-weight:600;color:var(--crater);font-size:15px;width:100%;max-w
 .tog.on{background:#E7EFE4;border-color:#C9DAC4;color:#4E7247}
 .cons{width:60px}
 .addline{display:grid;grid-template-columns:2fr 1fr 2fr .8fr auto;gap:10px;align-items:end;padding:14px;border-top:1px solid var(--line);background:#fff8}
+main{padding-bottom:150px}
+.ask{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px clamp(12px,3vw,32px) 14px;background:linear-gradient(to top,var(--bg) 70%,rgba(239,233,223,0))}
+.ask .in2{max-width:1280px;margin:0 auto}
+.ask form{display:flex;gap:8px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 16px;box-shadow:var(--shadow);align-items:center}
+.ask form:focus-within{border-color:var(--ash)}
+.ask form .spark{color:var(--umber);font-size:18px}
+.ask form input{flex:1;border:0;outline:0;font-size:15px;background:transparent;min-width:0}
+.ask .panel li input{margin-top:3px;flex:none}
+.ask .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:8px;max-height:46vh;overflow:auto}
+.ask .panel .you{font-size:13px;color:var(--muted);margin-bottom:4px}
+.ask .panel .reply{font-size:14px;margin-bottom:8px}
+.ask .panel ul{list-style:none;margin:0 0 10px;padding:0}
+.ask .panel li{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.ask .panel li:last-child{border-bottom:0}
+.ask .panel li.bad{color:var(--muted);text-decoration:line-through}
+.ask .panel .warn{background:#F6E3D7;color:var(--umber);border-radius:8px;padding:6px 10px;font-size:13px;margin-bottom:8px}
+.ask .panel .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ask .dots::after{content:'…';animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 @media (max-width:860px){ .addline{grid-template-columns:1fr 1fr} .runhead h2{font-size:22px} }
 </style>
 </head>
@@ -101,6 +120,10 @@ tr.dh .dname{font-weight:600;color:var(--crater);font-size:15px;width:100%;max-w
     </div>
   </main>
 </section>
+<div class="ask" id="ask"><div class="in2">
+  <div class="panel hidden" id="askPanel"></div>
+  <form id="askForm" autocomplete="off"><span class="spark">✦</span><input id="askIn" placeholder="Ask Claude – e.g. “move Mock Neck Abaya to the 18 Nov run”" aria-label="Ask Claude to change the runs"><button class="btn primary sm" type="submit">Ask</button></form>
+</div></div>
 <div id="toast"></div>
 
 <script src="../production/shared.js"></script>
@@ -183,7 +206,7 @@ function renderCalc(){
     <div class="kv"><span class="l">Status</span><select class="in" id="runStatus">${STATUSES.map(x=>`<option${x===RUN.status?' selected':''}>${x}</option>`).join('')}</select></div>
     <div class="kv"><span class="l">Pieces</span><span class="v">${f(pcs)}</span></div>
     <div class="kv"><span class="l">Yards</span><span class="v">${f(yds)}</span></div>
-    <div class="kv prog"><span class="l">${RUN.is_remainder?'Remainder run – takes whatever is left':t?`Target ${f(t)} · ${pcs>=t?'met':f(t-pcs)+' to go'}`:'No target set'}</span>${t?`<div class="bar"><i class="${pcs>t?'over':''}" style="width:${pct}%"></i></div>`:''}</div>
+    <div class="kv prog"><span class="l">${RUN.is_remainder?'Remainder run – takes whatever is left':t?`Target ${f(t)} · ${pcs>=t?'met':f(t-pcs)+' to go'}`:'No target set'}</span>${t?`<div class="bar"><i style="width:${pct}%;${pcs>=t?'background:#4E7247':''}"></i></div>`:''}</div>
   </div>`;
   // fabric summary
   const per=new Map(); for(const l of ls){ const key=l.fabric_id||'none'; per.set(key,(per.get(key)||0)+PF.yards(l)); }
@@ -243,6 +266,76 @@ $('actRefresh').onclick=async()=>{ await PF.load(); RUN=RUN&&PF.run(RUN.id); if(
 $('actCsv').onclick=()=>{ if(!RUN) return; const ls=PF.runLines(RUN.id);
   J.csv(`jawda-run-${RUN.run_date}.csv`,['Design','Fabric','Sizes','Pieces','Yards per piece','Yards','Sample approved','Production approved'],
     ls.map(l=>[l.design,PF.fabricName(PF.fabric(l.fabric_id))||l.fabric_label||'',sizeKeys(l.sizes).map(k=>`${k}:${l.sizes[k]}`).join(' '),PF.pieces(l),l.consumption,Math.round(PF.yards(l)*10)/10,l.sample_approved?'Yes':'No',l.production_approved?'Yes':'No'])); };
+// ---------- Ask Claude ----------
+const ASK={history:[],pending:null,undo:null};
+function askContext(){
+  const S=PF.stock();
+  return {current_run_id:RUN?RUN.id:null,
+    settings:{moq_design:PF.D.settings.moq_design,moq_colour:PF.D.settings.moq_colour,landing_days:PF.D.settings.landing_days},
+    runs:PF.runsSorted().map(r=>({id:r.id,run_date:r.run_date,name:r.name,status:r.status,target:r.target,is_remainder:r.is_remainder,pieces:PF.runPieces(r.id)})),
+    lines:PF.D.lines.map(l=>({id:l.id,run_id:l.run_id,design:l.design,fabric_id:l.fabric_id,fabric:l.fabric_id?PF.fabricName(PF.fabric(l.fabric_id)):l.fabric_label,sizes:l.sizes,consumption:l.consumption,sample_approved:l.sample_approved,production_approved:l.production_approved})),
+    fabrics:PF.D.fabrics.map(f=>{const o=S.get(f.id); return {id:f.id,name:f.name,colour:f.colour,status:f.status,yards_left_after_all_runs:o?Math.round(o.left):null,on_order:+f.on_order||0,planned_order:+f.planned_order||0};})};
+}
+function checkOp(o){
+  const L=id=>PF.D.lines.some(l=>l.id===id), R=id=>PF.D.runs.some(r=>r.id===id), F=id=>!id||PF.D.fabrics.some(f=>f.id===id);
+  if(o.op==='move_lines') return (o.line_ids||[]).length&&o.line_ids.every(L)&&R(o.to_run_id);
+  if(o.op==='delete_lines') return (o.line_ids||[]).length&&o.line_ids.every(L);
+  if(o.op==='update_line') return L(o.line_id)&&F(o.fabric_id);
+  if(o.op==='add_line') return R(o.run_id)&&o.design&&F(o.fabric_id);
+  if(o.op==='update_run') return R(o.run_id);
+  return false;
+}
+function showAsk(html){ $('askPanel').innerHTML=html; $('askPanel').classList.remove('hidden'); }
+$('askForm').onsubmit=async e=>{
+  e.preventDefault(); const msg=$('askIn').value.trim(); if(!msg) return;
+  if(J.mode!=='remote'||!J.sb){ showAsk('<div class="reply">Claude needs the team database – sign in online to use it.</div><div class="acts"><button class="btn line sm" data-ask="close">Close</button></div>'); return; }
+  showAsk(`<div class="you">You: ${J.esc(msg)}</div><div class="reply dots">Claude is looking at the runs</div>`); $('askIn').value='';
+  let res;
+  try{ res=await J.sb.functions.invoke('runs-assistant',{body:{message:msg,context:askContext(),history:ASK.history}}); }catch(err){ res={error:err}; }
+  let d=res.data;
+  if(res.error&&!d){ try{ d=await res.error.context?.json?.(); }catch(_){}
+    if(!d||!d.reply){ showAsk(`<div class="you">You: ${J.esc(msg)}</div><div class="reply">The Claude assistant isn't switched on yet. It needs a one-time setup in Supabase (the <b>runs-assistant</b> function and an Anthropic API key).</div><div class="acts"><button class="btn line sm" data-ask="close">Close</button></div>`); return; } }
+  ASK.history.push({role:'user',content:msg},{role:'assistant',content:d.reply||''});
+  const ops=(d.ops||[]).map(o=>({...o,ok:checkOp(o)}));
+  ASK.pending=ops;
+  showAsk(`<div class="you">You: ${J.esc(msg)}</div><div class="reply">${J.esc(d.reply||'')}</div>
+    ${(d.warnings||[]).map(w=>`<div class="warn">⚠ ${J.esc(w)}</div>`).join('')}
+    ${ops.length?`<ul>${ops.map((o,i)=>`<li class="${o.ok?'':'bad'}"><input type="checkbox" data-op="${i}" ${o.ok?'checked':'disabled'}><span>${J.esc(o.summary||o.op)}${o.ok?'':' <span class="muted">(couldn\'t match this to the data – skipped)</span>'}</span></li>`).join('')}</ul>`:''}
+    <div class="acts"><button class="btn line sm" data-ask="close">${ops.length?'Discard':'Close'}</button>${ops.some(o=>o.ok)?'<button class="btn primary sm" data-ask="apply">Apply changes</button>':''}</div>`);
+};
+$('askPanel').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-ask]'); if(!b) return;
+  if(b.dataset.ask==='close'){ $('askPanel').classList.add('hidden'); ASK.pending=null; return; }
+  if(b.dataset.ask==='undo'){ await undoAsk(); return; }
+  if(b.dataset.ask==='apply'){
+    const chosen=ASK.pending.filter((o,i)=>o.ok&&$('askPanel').querySelector(`[data-op="${i}"]`)?.checked);
+    b.disabled=true; const n=await applyOps(chosen);
+    showAsk(`<div class="reply">✓ ${n} change${n===1?'':'s'} applied.</div><div class="acts"><button class="btn line sm" data-ask="undo">Undo</button><button class="btn line sm" data-ask="close">Close</button></div>`);
+    render();
+  }
+});
+async function applyOps(ops){
+  const snap={lines:[],runs:[],added:[]}; const keep=(coll,row)=>{ const k=coll==='lines'?snap.lines:snap.runs; if(row&&!k.some(x=>x.id===row.id)) k.push(JSON.parse(JSON.stringify(row))); };
+  let n=0;
+  for(const o of ops){
+    if(o.op==='move_lines'){ for(const id of o.line_ids){ const l=line(id); keep('lines',l); l.run_id=o.to_run_id; l.sort=PF.runLines(o.to_run_id).length; await PF.put('lines',l); } n++; }
+    else if(o.op==='delete_lines'){ for(const id of o.line_ids){ keep('lines',line(id)); await PF.del('lines',id); } n++; }
+    else if(o.op==='update_line'){ const l=line(o.line_id); keep('lines',l);
+      for(const k of ['design','fabric_id','sizes','consumption','sample_approved','production_approved']) if(o[k]!==undefined) l[k]=o[k];
+      if(o.fabric_id) l.fabric_label=PF.fabricName(PF.fabric(o.fabric_id)); await PF.put('lines',l); n++; }
+    else if(o.op==='add_line'){ const f=PF.fabric(o.fabric_id); const row={id:PF.uuid(),run_id:o.run_id,design:o.design,fabric_id:o.fabric_id||null,fabric_label:f?PF.fabricName(f):null,sizes:o.sizes||{},consumption:o.consumption??0,sample_approved:!!o.sample_approved,production_approved:!!o.production_approved,sort:PF.runLines(o.run_id).length};
+      await PF.put('lines',row); snap.added.push(row.id); n++; }
+    else if(o.op==='update_run'){ const r=PF.run(o.run_id); keep('runs',r); for(const k of ['name','run_date','status','target']) if(o[k]!==undefined) r[k]=o[k]; await PF.put('runs',r); n++; }
+  }
+  ASK.undo=snap; return n;
+}
+async function undoAsk(){
+  const s=ASK.undo; if(!s) return;
+  for(const id of s.added) await PF.del('lines',id);
+  for(const l of s.lines) await PF.put('lines',l);
+  for(const r of s.runs) await PF.put('runs',r);
+  ASK.undo=null; showAsk('<div class="reply">Undone – the runs are back as they were.</div><div class="acts"><button class="btn line sm" data-ask="close">Close</button></div>'); render();
+}
 J.boot(async()=>{ await PF.load(); pickRun(); render(); if(J.mode==='remote') J.setSave('Saved for the team'); });
 </script>
 </body>
