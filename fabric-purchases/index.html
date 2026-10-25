@@ -23,6 +23,8 @@
 .addcard h2 .idprev b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid var(--line);padding:2px 8px;border-radius:6px;color:var(--crater)}
 .fgrid{display:grid;grid-template-columns:140px 1fr 1.2fr 1.3fr 1fr;gap:12px}
 .fgrid2{display:grid;grid-template-columns:1.1fr 1.6fr 2fr;gap:12px;margin-top:12px}
+.fgrid4{display:grid;grid-template-columns:1.5fr 2fr;gap:12px;margin-top:12px;align-items:end}
+.fgrid4 p{margin:0 0 10px}
 .fgrid3{display:grid;grid-template-columns:1.5fr 1fr 1.4fr 1fr;gap:12px;margin-top:12px}
 .pricebox{display:flex;gap:6px}
 .pricebox input{text-align:right;font-variant-numeric:tabular-nums}
@@ -91,6 +93,7 @@
   .fgrid{grid-template-columns:1fr 1fr}
   .fgrid2{grid-template-columns:1fr}
   .fgrid3{grid-template-columns:1fr 1fr}
+  .fgrid4{grid-template-columns:1fr}
 }
 @media (max-width:560px){ .fgrid,.fgrid3{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
 @media (max-width:760px){
@@ -181,6 +184,7 @@
         <div class="field"><label for="aPrice">Price paid</label><div class="pricebox"><input type="number" id="aPrice" inputmode="decimal" min="0" step="any" placeholder="0.00"></div></div>
         <div class="field"><label for="aBasis">Price is</label><select id="aBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
       </div>
+      <div class="fgrid4"><div class="field"><label for="aStock">Adds to stock</label><select id="aStock"></select></div><p class="muted" id="aStockHint">Links this purchase to a fabric in Fabric Stock, so its yards count towards production runs.</p></div>
       <div class="actions">
         <span class="hint">Press Enter to add. "Add & next colour" keeps everything except the colour and quantity.</span>
         <button type="button" class="btn line" id="btnNext">Add &amp; next colour</button>
@@ -217,6 +221,7 @@
       <div class="field"><label for="ePrice">Price paid</label><input type="number" id="ePrice" min="0" step="any"></div>
       <div class="field"><label for="eBasis">Price is</label><select id="eBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
       <div class="field wide"><label for="eMake">What we can make from it</label><input id="eMake"></div>
+      <div class="field wide"><label for="eStock">Adds to stock</label><select id="eStock"></select></div>
       <p class="muted wide" style="margin:0">The ID stays the same if you change the source or fabric type.</p>
     </div>
     <div class="mf"><button type="button" class="del" id="eDel">Delete purchase</button><button type="submit" class="btn dark save">Save</button></div>
@@ -234,6 +239,34 @@ const DEFAULT_TYPES=[
 const LS_ROWS='jfp.rows', LS_TYPES='jfp.types', LS_LAST='jfp.last';
 const P={rows:[], q:'', src:new Set(), type:'', sort:{k:'entered_on',dir:-1}, editing:null};
 let customTypes=J.safe(J.get(LS_TYPES),[]);
+let STOCKF=[]; let stockTouched=false;
+// ---------- link to Fabric Stock ----------
+function stockScore(desc,colour,source,x){
+  let s=0; const c=(colour||'').toLowerCase().trim(), xc=(x.colour||'').toLowerCase();
+  if(c&&(xc===c||xc.includes(c)||c.includes(xc))) s+=2;
+  const words=(desc||'').toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!['fabric','the'].includes(w));
+  const nm=(x.name+' '+(x.composition||'')).toLowerCase(); for(const w of words) if(nm.includes(w)) s+=1;
+  if(source&&x.source===source) s+=1; return s;
+}
+function stockOptions(desc,colour,source,sel){
+  const ranked=STOCKF.map(x=>({x,s:stockScore(desc,colour,source,x)})).sort((a,b)=>b.s-a.s||(a.x.sort??0)-(b.x.sort??0));
+  return `<option value="">Don't add to stock</option><option value="__new">＋ New stock fabric from this purchase</option>`+ranked.map(({x,s})=>`<option value="${x.id}"${x.id===sel?' selected':''}>${s>=3?'★ ':''}${J.esc(x.name)} – ${J.esc(x.colour)}</option>`).join('');
+}
+function bestStock(desc,colour,source){ let best=null,bs=2; for(const x of STOCKF){ const s=stockScore(desc,colour,source,x); if(s>bs){bs=s;best=x;} } return best&&bs>=3?best.id:''; }
+function refreshAddStock(){
+  if(!STOCKF.length){ $('aStock').closest('.fgrid4').classList.add('hidden'); return; }
+  $('aStock').closest('.fgrid4').classList.remove('hidden');
+  const keep=$('aStock').value, auto=stockTouched?keep:bestStock($('aDesc').value,$('aColour').value,A.source);
+  $('aStock').innerHTML=stockOptions($('aDesc').value,$('aColour').value,A.source,auto); $('aStock').value=auto;
+}
+async function resolveStock(val,obj){
+  if(val!=='__new') return val||null;
+  const row={name:obj.description,colour:obj.colour,composition:obj.composition,source:obj.source,status:'In stock',in_stock:0,sort:STOCKF.reduce((a,x)=>Math.max(a,x.sort??0),0)+1};
+  if(STOCKF.some(x=>x.name===row.name&&x.colour===row.colour)) return STOCKF.find(x=>x.name===row.name&&x.colour===row.colour).id;
+  const {data,error}=await J.sb.from('pf_fabrics').insert(row).select('id,name,colour,composition,source,sort').single();
+  if(error){ J.toast("Couldn't add it to Fabric Stock: "+error.message); return null; }
+  STOCKF.push(data); return data.id;
+}
 
 function types(){
   const m=new Map(DEFAULT_TYPES);
@@ -265,7 +298,8 @@ function priceHtml(r){
 async function load(){
   if(J.sb){
     const {data,error}=await J.sb.from('fabric_purchases').select('*').order('entered_on',{ascending:false}).order('created_at',{ascending:false});
-    if(!error){ J.mode='remote'; P.rows=data; $('banner').innerHTML=''; J.setSave('Saved for the team'); return; }
+    if(!error){ J.mode='remote'; P.rows=data; $('banner').innerHTML=''; J.setSave('Saved for the team');
+      const f=await J.sb.from('pf_fabrics').select('id,name,colour,composition,source,sort').order('sort'); STOCKF=f.error?[]:f.data; return; }
   }
   J.mode='local'; P.rows=J.safe(J.get(LS_ROWS),[]);
   $('banner').innerHTML=J.sb
@@ -325,11 +359,12 @@ async function submitAdd(keep){
   const obj={entered_on:$('aDate').value||J.today(), source:A.source, fabric_type:t, description:$('aDesc').value.trim()||typeName(t)+' Fabric', colour:$('aColour').value.trim(), measure:A.measure, quantity:qty, can_make:$('aMake').value.trim()||null,
     composition:$('aComp').value.trim()||null, currency:$('aPrice').value!==''?A.currency:null, price_amount:$('aPrice').value!==''?parseFloat($('aPrice').value):null, price_basis:$('aBasis').value};
   $('btnAdd').disabled=$('btnNext').disabled=true;
+  if(J.mode==='remote'&&STOCKF.length){ const sid=await resolveStock($('aStock').value,obj); if(sid) obj.stock_fabric_id=sid; }
   const row=await insertRow(obj);
   $('btnAdd').disabled=$('btnNext').disabled=false;
   if(!row) return;
   J.toast(`Added ${row.fabric_code} – ${row.colour}, ${J.num(row.quantity)} ${row.measure}`);
-  $('aColour').value=''; $('aQty').value='';
+  $('aColour').value=''; $('aQty').value=''; stockTouched=false; refreshAddStock();
   if(!keep){ $('aMake').value=''; $('aComp').value=''; $('aPrice').value=''; }
   fillTypeSelects(); render(); updatePreview(); $('aColour').focus();
 }
@@ -369,7 +404,7 @@ function render(){
       <div class="c-col">${J.esc(r.colour)}</div>
       <div class="c-qty qcell"><input type="number" min="0" step="any" value="${+r.quantity}" data-qty="${r.id}" aria-label="Quantity for ${J.esc(r.fabric_code)}"><span class="u">${r.measure==='yards'?'yd':'kg'}</span></div>
       <div class="c-price">${priceHtml(r)}</div>
-      <div class="c-mk mk${r.can_make?'':' none'}" title="${J.esc(r.can_make||'')}">${J.esc(r.can_make||'Not set')}</div>
+      <div class="c-mk mk${r.can_make?'':' none'}" title="${J.esc(r.can_make||'')}">${J.esc(r.can_make||'Not set')}${STOCKF.length?(r.stock_fabric_id?'<div class="muted">✓ In Fabric Stock</div>':'<div class="muted" style="color:var(--umber)">Not linked to stock</div>'):''}</div>
       <div class="c-edit rowbtns"><button type="button" class="edit" data-dup="${r.id}" title="Duplicate" aria-label="Duplicate ${J.esc(r.fabric_code)}">⧉</button><button type="button" class="edit" data-edit="${r.id}" title="Edit" aria-label="Edit ${J.esc(r.fabric_code)}">✎</button></div>
     </div>`;
   });
@@ -385,6 +420,7 @@ async function duplicate(id){
   const r=P.rows.find(x=>x.id===id); if(!r) return;
   const copy={entered_on:J.today(), source:r.source, fabric_type:r.fabric_type, description:r.description, colour:r.colour, measure:r.measure, quantity:+r.quantity,
     can_make:r.can_make||null, composition:r.composition||null, currency:r.currency||null, price_amount:r.price_amount??null, price_basis:r.price_basis||'unit'};
+  if(r.stock_fabric_id) copy.stock_fabric_id=r.stock_fabric_id;
   const row=await insertRow(copy); if(!row) return;
   fillTypeSelects(); render(); updatePreview();
   J.toast(`Duplicated ${r.fabric_code} as ${row.fabric_code} – change the colour or quantity`);
@@ -396,6 +432,7 @@ function openEdit(id){
   const r=P.rows.find(x=>x.id===id); if(!r) return; P.editing=id;
   $('eCode').textContent=r.fabric_code||''; $('eDate').value=r.entered_on; $('eSource').value=r.source; $('eType').value=r.fabric_type;
   $('eDesc').value=r.description; $('eColour').value=r.colour; $('eMeasure').value=r.measure; $('eQty').value=+r.quantity; $('eMake').value=r.can_make||''; $('eComp').value=r.composition||''; $('eCur').value=r.currency||''; $('ePrice').value=r.price_amount??''; $('eBasis').value=r.price_basis||'unit';
+  $('eStock').innerHTML=stockOptions(r.description,r.colour,r.source,r.stock_fabric_id); $('eStock').value=r.stock_fabric_id||''; $('eStock').closest('.field').classList.toggle('hidden',!STOCKF.length);
   $('eDel').classList.remove('arm'); $('eDel').textContent='Delete purchase';
   $('editModal').classList.add('on'); $('eQty').focus();
 }
@@ -413,9 +450,12 @@ $('aType').onchange=()=>{
     if(name && /^[a-z]{2}$/.test(code)){ customTypes=customTypes.filter(([c])=>c!==code).concat([[code,name]]); J.set(LS_TYPES,JSON.stringify(customTypes)); fillTypeSelects(); $('aType').value=code; }
     else { if(name) J.toast('The code needs to be exactly two letters'); $('aType').value=DEFAULT_TYPES[0][0]; }
   }
-  descTouched=false; autoDesc(); updatePreview();
+  descTouched=false; autoDesc(); updatePreview(); refreshAddStock();
 };
-$('aDesc').oninput=()=>{descTouched=true};
+$('aDesc').oninput=()=>{descTouched=true; refreshAddStock();};
+$('aColour').addEventListener('input',()=>refreshAddStock());
+$('aStock').onchange=()=>{stockTouched=true;};
+$('aSource').addEventListener('click',()=>setTimeout(refreshAddStock));
 $('quick').onclick=e=>{const b=e.target.closest('[data-q]'); if(!b) return; const q=+b.dataset.q; $('aQty').value = q===0 ? '' : String((parseFloat($('aQty').value)||0)+q); $('aQty').focus();};
 $('addForm').onsubmit=e=>{e.preventDefault(); submitAdd(false);};
 $('btnNext').onclick=()=>submitAdd(true);
@@ -443,6 +483,7 @@ $('editForm').onsubmit=async e=>{
   e.preventDefault(); const id=P.editing; if(!id) return;
   const patch={entered_on:$('eDate').value, source:$('eSource').value, fabric_type:$('eType').value, description:$('eDesc').value.trim(), colour:$('eColour').value.trim(), measure:$('eMeasure').value, quantity:parseFloat($('eQty').value)||0, can_make:$('eMake').value.trim()||null,
     composition:$('eComp').value.trim()||null, currency:$('ePrice').value!==''?($('eCur').value||'USD'):null, price_amount:$('ePrice').value!==''?parseFloat($('ePrice').value):null, price_basis:$('eBasis').value};
+  if(J.mode==='remote'&&STOCKF.length){ patch.stock_fabric_id=await resolveStock($('eStock').value,patch); }
   if(await updateRow(id,patch)){ closeEdit(); fillTypeSelects(); render(); J.toast('Saved'); }
 };
 $('eDel').onclick=async()=>{
@@ -456,7 +497,7 @@ $('actCsv').onclick=()=>J.csv('jawda-fabric-purchases.csv',
   ['Date entered','ID','Source','Fabric type','Product description','Composition','Colour','Measure','Quantity','Currency','Price paid','Price is','Unit price','Total paid','What we can make'],
   filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.composition||'',r.colour,r.measure,r.quantity,r.currency||'',r.price_amount??'',r.price_amount!=null?(r.price_basis==='total'?'Total':'Per '+(r.measure==='yards'?'yard':'kg')):'',unitPrice(r)??'',totalPaid(r)??'',r.can_make||'']));
 
-J.boot(async()=>{ await load(); fillTypeSelects(); if(!$('aType').value) $('aType').value='ct'; autoDesc(); render(); updatePreview(); });
+J.boot(async()=>{ await load(); fillTypeSelects(); if(!$('aType').value) $('aType').value='ct'; autoDesc(); render(); updatePreview(); refreshAddStock(); });
 </script>
 </body>
 </html>
