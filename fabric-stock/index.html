@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="robots" content="noindex, nofollow">
+<title>Fabric Stock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<link rel="stylesheet" href="../production/pf.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+tr.gh td{background:#F1EADF!important;font-weight:600;color:var(--crater)}
+tr.gh td .muted{font-weight:400}
+tr.fr{cursor:pointer}
+tr.fr td:first-child{padding-left:22px}
+tr.det td{background:#fff!important;padding:4px 22px 14px}
+.det .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.det h4{margin:8px 0 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.det ul{list-style:none;margin:0;padding:0;font-size:13px}
+.det li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.det li:last-child{border-bottom:0}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--crater)}
+.unl{list-style:none;margin:0;padding:0}
+.unl li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.unl li:last-child{border-bottom:0}
+.unl li .what{flex:1 1 240px}
+.unl select{max-width:300px}
+.left{font-weight:700}
+.eq{font-size:12px;color:var(--muted);margin:-8px 0 14px}
+@media (max-width:860px){ .det .cols{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Fabric stock</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" id="pnav" aria-label="Production pages"></nav>
+    <div class="grow"></div>
+    <span class="wip">Work in progress</span>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export stock to CSV</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="banner"></div>
+    <div class="intro"><div class="left">
+      <h1>Fabric stock</h1>
+      <p class="lede">What's left of every fabric: what we counted, plus what we've bought since, minus what the production runs use.</p>
+    </div></div>
+    <div class="wipnote"><b>Work in progress.</b> Counted stock comes from the Fabric Position tab (after the 10 Oct cut). From here on, log new fabric in <a href="../fabric-purchases/">Fabric Purchases</a> and link it to a fabric below.</div>
+
+    <div class="stats" id="stats"></div>
+    <div class="eq" id="eq"></div>
+
+    <div class="card hidden" id="unlCard">
+      <h2>Purchases to link <span class="r muted">Tell us which stock fabric each purchase adds to</span></h2>
+      <ul class="unl" id="unl"></ul>
+    </div>
+
+    <div class="filters">
+      <input type="search" id="fSearch" placeholder="Search fabric or colour…">
+      <span id="srcChips"></span>
+      <select id="fShow" aria-label="Show">
+        <option value="run">On a run</option>
+        <option value="watch">Short or on order</option>
+        <option value="all">All fabrics</option>
+      </select>
+      <button class="btn line sm" id="btnAdd">＋ Add fabric</button>
+      <span class="count" id="fCount"></span>
+    </div>
+    <div class="card"><div class="scroll"><table class="t" id="tbl"></table></div></div>
+  </main>
+</section>
+
+<div class="modal" id="fm"><div class="mc">
+  <div class="mh"><h3 id="fmTitle">Fabric</h3><button class="x" data-close>×</button></div>
+  <div class="mb">
+    <div class="field"><label for="mName">Fabric</label><input id="mName" list="nameList" placeholder="e.g. Sadia Tencel Cotton"></div>
+    <div class="field"><label for="mColour">Colour</label><input id="mColour"></div>
+    <div class="field"><label for="mComp">Composition</label><input id="mComp"></div>
+    <div class="field"><label for="mSource">Source</label><input id="mSource" list="srcList" placeholder="Nice, Sadia, Mollik, Market"></div>
+    <div class="field"><label for="mStatus">Status</label><select id="mStatus"></select></div>
+    <div class="field"><label for="mCount">Counted stock (yd)</label><input id="mCount" type="number" min="0" step="any"></div>
+    <div class="field"><label for="mOrder">On order (yd)</label><input id="mOrder" type="number" min="0" step="any"></div>
+    <div class="field"><label for="mEta">Order arrives in Dhaka</label><input id="mEta" type="date"></div>
+    <div class="field"><label for="mPlan">Planned order (yd)</label><input id="mPlan" type="number" min="0" step="any"></div>
+    <div class="field"><label for="mReq">Required by (leave blank to work it out)</label><input id="mReq" type="date"></div>
+    <div class="field"><label for="mPrice">Price (£ / yd)</label><input id="mPrice" type="number" min="0" step="0.01"></div>
+    <div class="field full"><label for="mNotes">Notes</label><textarea id="mNotes" rows="2"></textarea></div>
+  </div>
+  <div class="mf"><button class="btn line l" id="mDel">Delete fabric</button><button class="btn line" data-close>Cancel</button><button class="btn primary" id="mSave">Save</button></div>
+</div></div>
+<datalist id="nameList"></datalist><datalist id="srcList"><option value="Nice"><option value="Sadia"><option value="Mollik"><option value="Market"></datalist>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script src="../production/pf.js"></script>
+<script>
+const STATUSES=['In stock','Ordered','To order (mill)','Buy locally','Searching','Check stock'];
+const f=PF.fmt;
+const UI={q:'',src:'',show:'run',open:new Set()};
+try{ Object.assign(UI,{show:localStorage.getItem('jawda.stock.show')||'run'}); }catch(e){}
+
+function stateCell(o){
+  if(!o.byRun.length) return '<span class="muted">Not on a run</span>';
+  if(o.state==='ok') return o.etaLate?'<span class="pill warn">Order lands late</span>':'<span class="pill ok">Enough</span>';
+  if(o.state==='ordered') return `<span class="pill info">Covered by order</span>${o.etaLate?' <span class="pill warn">lands late</span>':''}`;
+  if(o.state==='planned') return '<span class="pill info">Needs the planned order</span>';
+  return '<span class="pill warn">Short</span>';
+}
+function render(){
+  const D=PF.D, s=D.settings, S=PF.stock();
+  $('pnav').innerHTML=PF.nav('Fabric Stock'); $('banner').innerHTML=PF.banner();
+  const all=[...S.values()];
+  const held=all.reduce((a,o)=>a+o.counted+o.bought,0), used=all.reduce((a,o)=>a+o.used,0), bought=all.reduce((a,o)=>a+o.bought,0);
+  const short=all.filter(o=>o.byRun.length&&o.state==='short'), needOrder=all.filter(o=>o.byRun.length&&o.state==='planned');
+  const unl=D.purchases.filter(p=>!p.stock_fabric_id);
+  $('stats').innerHTML=`
+    <div class="stat"><div class="l">Yards held</div><div class="v">${f(held)}</div><div class="s">Counted + bought since ${PF.short(s.fabric_count_date)}</div></div>
+    <div class="stat"><div class="l">Bought since the count</div><div class="v">${f(bought)}</div><div class="s">${D.purchases.length} purchases logged</div></div>
+    <div class="stat"><div class="l">Yards on runs</div><div class="v">${f(used)}</div><div class="s">Runs from ${PF.short(s.fabric_count_date)}</div></div>
+    <div class="stat ${short.length?'warn':''}"><div class="l">Short</div><div class="v">${short.length}</div><div class="s">Fabrics a run needs that we don't have</div></div>
+    <div class="stat"><div class="l">Waiting on a planned order</div><div class="v">${needOrder.length}</div><div class="s">Short until the order is placed</div></div>`;
+  $('eq').textContent=`Left = counted stock (${PF.short(s.fabric_count_date)}) + yards bought in Fabric Purchases since then − yards on runs from then on. Needed by = first run it runs short − ${s.dhaka_buffer_days} days; order by = needed by − ${s.lead_days}-day mill lead time.`;
+
+  // purchases to link
+  $('unlCard').classList.toggle('hidden',!unl.length);
+  $('unl').innerHTML=unl.map(p=>{
+    const opts=[...D.fabrics].map(x=>({x,score:score(p,x)})).sort((a,b)=>b.score-a.score||(a.x.sort??0)-(b.x.sort??0));
+    return `<li><span class="what"><span class="code">${J.esc(p.fabric_code||'')}</span> ${J.esc(p.description)} – ${J.esc(p.colour)} · <b>${f(p.quantity)} ${J.esc(p.measure)}</b> <span class="muted">${J.esc(p.source)} · ${PF.short(p.entered_on)}</span>${p.measure==='kg'?' <span class="pill warn">kg – not counted in yards</span>':''}</span>
+      <select class="in" data-link="${p.id}"><option value="">Link to…</option>${opts.map(({x,score})=>`<option value="${x.id}">${score>=2?'★ ':''}${J.esc(PF.fabricName(x))}</option>`).join('')}</select>
+      <button class="btn line sm" data-newfrom="${p.id}">New stock fabric</button></li>`;
+  }).join('');
+
+  // source chips
+  const srcs=[...new Set(D.fabrics.map(x=>x.source).filter(Boolean))].sort();
+  $('srcChips').innerHTML=srcs.map(x=>`<button class="chip ${UI.src===x?'on':''}" data-src="${J.esc(x)}">${J.esc(x)}</button>`).join(' ');
+  $('fShow').value=UI.show;
+  $('nameList').innerHTML=[...new Set(D.fabrics.map(x=>x.name))].map(n=>`<option value="${J.esc(n)}">`).join('');
+
+  // table
+  const q=UI.q.toLowerCase();
+  const rows=all.filter(o=>{
+    const x=o.f; if(UI.src&&x.source!==UI.src) return false;
+    if(q&&!(`${x.name} ${x.colour} ${x.composition||''}`.toLowerCase().includes(q))) return false;
+    if(UI.show==='run'&&!o.byRun.length) return false;
+    if(UI.show==='watch'&&!(o.byRun.length&&(o.state!=='ok'||o.etaLate))) return false;
+    return true;
+  }).sort((a,b)=>(a.f.sort??0)-(b.f.sort??0));
+  const groups=new Map(); for(const o of rows){ if(!groups.has(o.f.name)) groups.set(o.f.name,[]); groups.get(o.f.name).push(o); }
+  let html=`<thead><tr><th>Fabric</th><th>Status</th><th class="n">Counted</th><th class="n">+ Bought</th><th class="n">− On runs</th><th class="n">= Left</th><th class="n">On order</th><th class="n">Planned</th><th class="n">Left after orders</th><th>Needed by</th><th></th><th></th></tr></thead><tbody>`;
+  const sum=(xs,k)=>xs.reduce((a,o)=>a+o[k],0);
+  for(const [name,os] of groups){
+    html+=`<tr class="gh"><td>${J.esc(name)} <span class="muted">${J.esc(os[0].f.composition||'')}${os[0].f.source?' · '+J.esc(os[0].f.source):''}</span></td><td></td>
+      <td class="n">${f(sum(os,'counted'))}</td><td class="n">${f(sum(os,'bought'))}</td><td class="n">${f(sum(os,'used'))}</td><td class="n ${sum(os,'left')<-0.5?'neg':''}">${f(sum(os,'left'))}</td>
+      <td class="n">${sum(os,'onOrder')?f(sum(os,'onOrder')):'–'}</td><td class="n">${sum(os,'planned')?f(sum(os,'planned')):'–'}</td><td class="n">${f(sum(os,'leftAll'))}</td><td colspan="3"></td></tr>`;
+    for(const o of os){
+      const x=o.f, open=UI.open.has(x.id);
+      html+=`<tr class="fr" data-open="${x.id}"><td>${open?'▾':'▸'} ${J.esc(x.colour)}</td><td><span class="pill">${J.esc(x.status)}</span></td>
+        <td class="n">${f(o.counted)}</td><td class="n">${o.bought?f(o.bought):'–'}</td><td class="n">${o.used?f(o.used):'–'}</td>
+        <td class="n left ${o.left<-0.5?'neg':''}">${f(o.left)}</td>
+        <td class="n">${o.onOrder?f(o.onOrder)+(x.on_order_eta?`<div class="muted">${PF.short(x.on_order_eta)}</div>`:''):'–'}</td>
+        <td class="n">${o.planned?f(o.planned):'–'}</td>
+        <td class="n ${o.leftAll<-0.5?'neg':''}">${f(o.leftAll)}</td>
+        <td>${o.needBy?PF.short(o.needBy)+(x.required_by?' <span class="muted" title="Set by hand">(set)</span>':''):'–'}${o.orderBy?`<div class="muted">Order by ${PF.short(o.orderBy)}</div>`:''}</td>
+        <td>${stateCell(o)}</td>
+        <td class="n"><button class="ib" data-edit="${x.id}" title="Edit fabric">✎</button></td></tr>`;
+      if(open){
+        let bal=o.counted+o.bought;
+        html+=`<tr class="det"><td colspan="12"><div class="cols"><div><h4>Runs using it</h4><ul>${o.byRun.length?o.byRun.map(br=>{bal-=br.yards; return `<li><a href="../production-runs/?run=${br.run.id}">${PF.short(br.run.run_date)} · ${J.esc(br.run.name)}</a><span>${f(br.yards)} yd → <b class="${bal<-0.5?'neg':''}">${f(bal)}</b> left</span></li>`;}).join(''):'<li class="muted">Not on any run</li>'}</ul></div>
+          <div><h4>Purchases linked</h4><ul>${o.purchases.length?o.purchases.map(p=>`<li><span><span class="code">${J.esc(p.fabric_code||'')}</span> ${PF.short(p.entered_on)} · ${J.esc(p.source)}</span><span>${f(p.quantity)} ${J.esc(p.measure)} <button class="ib del" data-unlink="${p.id}" title="Unlink">×</button></span></li>`).join(''):'<li class="muted">None yet – link purchases above once they\'re logged</li>'}</ul>
+          ${x.notes?`<h4>Notes</h4><div class="muted">${J.esc(x.notes)}</div>`:''}</div></div></td></tr>`;
+      }
+    }
+  }
+  if(!rows.length) html+='<tr><td colspan="12" class="muted">No fabrics match.</td></tr>';
+  $('tbl').innerHTML=html+'</tbody>';
+  $('fCount').textContent=`${rows.length} of ${all.length} fabrics`;
+}
+function score(p,x){
+  let s=0; const c=(p.colour||'').toLowerCase().trim(), xc=(x.colour||'').toLowerCase();
+  if(c&&(xc===c||xc.includes(c)||c.includes(xc))) s+=2;
+  const words=(p.description||'').toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!['fabric','the'].includes(w));
+  const nm=(x.name+' '+(x.composition||'')).toLowerCase(); for(const w of words) if(nm.includes(w)) s+=1;
+  if(p.source&&x.source===p.source) s+=1;
+  return s;
+}
+
+// modal
+let editing=null, fromPurchase=null;
+$('mStatus').innerHTML=STATUSES.map(x=>`<option>${x}</option>`).join('');
+function openFabric(x,p){
+  editing=x||null; fromPurchase=p||null; $('fmTitle').textContent=x?'Edit fabric':'New fabric';
+  const v=(k,d='')=>x?(x[k]??d):d;
+  $('mName').value=v('name',p?p.description:''); $('mColour').value=v('colour',p?p.colour:''); $('mComp').value=v('composition',p?.composition||'');
+  $('mSource').value=v('source',p?.source||''); $('mStatus').value=v('status','In stock'); $('mCount').value=v('in_stock',0);
+  $('mOrder').value=v('on_order',0); $('mEta').value=v('on_order_eta'); $('mPlan').value=v('planned_order',0); $('mReq').value=v('required_by');
+  $('mPrice').value=v('price_gbp'); $('mNotes').value=v('notes'); $('mDel').classList.toggle('hidden',!x); $('mDel').textContent='Delete fabric';
+  $('fm').classList.add('on'); $('mName').focus();
+}
+$('mSave').onclick=async()=>{
+  const name=$('mName').value.trim(), colour=$('mColour').value.trim(); if(!name||!colour){ J.toast('Add the fabric and colour'); return; }
+  const n=k=>$(k).value===''?0:+$(k).value;
+  const row={...(editing||{sort:PF.D.fabrics.reduce((a,x)=>Math.max(a,x.sort??0),0)+1}),name,colour,composition:$('mComp').value.trim()||null,source:$('mSource').value.trim()||null,
+    status:$('mStatus').value,in_stock:n('mCount'),on_order:n('mOrder'),on_order_eta:$('mEta').value||null,planned_order:n('mPlan'),required_by:$('mReq').value||null,
+    price_gbp:$('mPrice').value===''?null:+$('mPrice').value,notes:$('mNotes').value.trim()||null};
+  if(!editing&&PF.D.fabrics.some(x=>x.name===name&&x.colour===colour)){ J.toast('That fabric and colour already exists'); return; }
+  if(await PF.put('fabrics',row)){
+    if(fromPurchase) await PF.patch('purchases',fromPurchase.id,{stock_fabric_id:row.id});
+    $('fm').classList.remove('on'); render(); J.toast('Fabric saved');
+  }
+};
+$('mDel').onclick=async()=>{
+  const b=$('mDel'), uses=PF.D.lines.filter(l=>l.fabric_id===editing.id).length;
+  if(!b.dataset.sure){ b.dataset.sure=1; b.textContent=uses?`Used on ${uses} run lines – tap to delete anyway`:'Tap again to delete'; setTimeout(()=>{delete b.dataset.sure; b.textContent='Delete fabric';},3500); return; }
+  await PF.del('fabrics',editing.id); PF.D.purchases.forEach(p=>{ if(p.stock_fabric_id===editing.id) p.stock_fabric_id=null; });
+  $('fm').classList.remove('on'); render(); J.toast('Fabric deleted');
+};
+
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button');
+  if(b){
+    if(b.hasAttribute('data-close')) $('fm').classList.remove('on');
+    else if(b.dataset.src!==undefined){ UI.src=UI.src===b.dataset.src?'':b.dataset.src; render(); }
+    else if(b.dataset.edit){ e.stopPropagation(); openFabric(PF.fabric(b.dataset.edit)); }
+    else if(b.dataset.newfrom) openFabric(null,PF.D.purchases.find(p=>p.id===b.dataset.newfrom));
+    else if(b.dataset.unlink){ e.stopPropagation(); await PF.patch('purchases',b.dataset.unlink,{stock_fabric_id:null}); render(); J.toast('Purchase unlinked'); }
+    return;
+  }
+  const tr=e.target.closest('tr[data-open]'); if(tr&&!e.target.closest('a')){ const id=tr.dataset.open; UI.open.has(id)?UI.open.delete(id):UI.open.add(id); render(); }
+});
+document.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.dataset.link&&t.value){ await PF.patch('purchases',t.dataset.link,{stock_fabric_id:t.value}); render(); J.toast('Purchase linked – stock updated'); }
+  else if(t.id==='fShow'){ UI.show=t.value; try{localStorage.setItem('jawda.stock.show',t.value);}catch(e){} render(); }
+});
+$('fSearch').oninput=e=>{ UI.q=e.target.value; render(); $('fSearch').focus(); };
+$('btnAdd').onclick=()=>openFabric(null);
+$('actRefresh').onclick=async()=>{ await PF.load(); render(); J.toast('Up to date'); };
+$('actCsv').onclick=()=>{ const S=PF.stock(); J.csv('jawda-fabric-stock.csv',['Fabric','Colour','Source','Status','Counted','Bought','On runs','Left','On order','Order ETA','Planned','Left after orders','Needed by','Order by'],
+  [...S.values()].map(o=>[o.f.name,o.f.colour,o.f.source||'',o.f.status,o.counted,o.bought,Math.round(o.used),Math.round(o.left),o.onOrder,o.f.on_order_eta||'',o.planned,Math.round(o.leftAll),o.needBy||'',o.orderBy||''])); };
+J.boot(async()=>{ await PF.load(); render(); if(J.mode==='remote') J.setSave('Saved for the team'); });
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="robots" content="noindex, nofollow">
+<title>Production Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<link rel="stylesheet" href="../production/pf.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+.runname{font-weight:600;color:var(--crater);text-decoration:none}
+.runname:hover{text-decoration:underline}
+.tgt{width:76px}
+.cover td .bar{width:140px}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:14px}
+.months .field{position:relative}
+.months .field .ib{position:absolute;right:2px;top:-4px;font-size:13px}
+.fablist{list-style:none;margin:0;padding:0}
+.fablist li{display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+.fablist li:last-child{border-bottom:0}
+.fablist li .nm{flex:1 1 220px}
+.formula{font-size:13px;color:var(--muted);padding:0 14px 14px}
+.formula b{color:var(--ink);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Production forecast</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" id="pnav" aria-label="Production pages"></nav>
+    <div class="grow"></div>
+    <span class="wip">Work in progress</span>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export runs to CSV</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="banner"></div>
+    <div class="intro"><div class="left">
+      <h1>Production forecast</h1>
+      <p class="lede">How many pieces we need to make before Ramadan, how much each run covers, and whether stock lasts month to month.</p>
+    </div></div>
+    <div class="wipnote"><b>Work in progress.</b> The Production Forecasting sheet is still the one we work from. These numbers were copied from it on 25 Oct 2026 – check them against the sheet before you rely on them.</div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="card">
+      <h2>Production runs <span class="r"><button class="btn line sm" id="btnAddRun">＋ Add run</button></span></h2>
+      <div class="scroll"><table class="t" id="runsTbl"></table></div>
+    </div>
+
+    <div class="card cover">
+      <h2>Stock month by month <span class="r muted">Sellable stock at the start, plus runs landing in the UK, minus pieces we expect to sell</span></h2>
+      <div class="scroll"><table class="t" id="coverTbl"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Fabric to watch <span class="r"><a class="btn line sm" href="../fabric-stock/">Open Fabric Stock →</a></span></h2>
+      <ul class="fablist" id="fabList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Plan settings</h2>
+      <div class="body">
+        <div class="setgrid" id="setGrid"></div>
+        <div class="field" style="margin-top:16px"><label>Pieces we expect to sell each month</label></div>
+        <div class="months" id="monthGrid"></div>
+        <div style="margin-top:10px"><button class="btn line sm" id="btnAddMonth">＋ Add month</button></div>
+      </div>
+      <div class="formula" id="formula"></div>
+    </div>
+  </main>
+</section>
+
+<div class="modal" id="runModal"><div class="mc">
+  <div class="mh"><h3 id="rmTitle">Run</h3><button class="x" data-close>×</button></div>
+  <div class="mb">
+    <div class="field full"><label for="rmName">Name</label><input id="rmName" placeholder="e.g. General Restock"></div>
+    <div class="field"><label for="rmDate">Run date (factory)</label><input type="date" id="rmDate"></div>
+    <div class="field"><label for="rmStatus">Status</label><select id="rmStatus"></select></div>
+    <div class="field"><label for="rmTarget">Target pieces</label><input type="number" id="rmTarget" min="0" step="1"></div>
+    <div class="field"><label for="rmRem">Takes whatever is left?</label><select id="rmRem"><option value="0">No – fixed target</option><option value="1">Yes – the remainder run</option></select></div>
+    <div class="field full"><label for="rmGid">Tracker tab link or gid</label><input id="rmGid" placeholder="Paste the tab's link from the Bangladesh tracker"></div>
+    <div class="field full"><label for="rmNotes">Notes</label><textarea id="rmNotes" rows="2"></textarea></div>
+  </div>
+  <div class="mf"><button class="btn line l" id="rmDel">Delete run</button><button class="btn line" data-close>Cancel</button><button class="btn primary" id="rmSave">Save</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script src="../production/pf.js"></script>
+<script>
+const TRACKER='https://docs.google.com/spreadsheets/d/134V1xi7YLlEau3UEKVopaaFhW9KwLtq5Wh8UIvqk2JM/edit#gid=';
+const STATUSES=['Planning','Approved','In production','Shipped','Delivered'];
+const SETTINGS=[
+  ['stock_on_hand','Stock on hand (pieces)','number'],['stock_as_of','Stock counted on','date'],['sellable_pct','Sellable %','number'],
+  ['landing_days','Days from run to UK','number'],['dhaka_buffer_days','Fabric in Dhaka, days before run','number'],['lead_days','Mill lead time (days)','number'],
+  ['moq_design','Factory minimum per design','number'],['moq_colour','Factory minimum per colour','number'],['fabric_count_date','Fabric counted on','date']];
+const f=PF.fmt;
+
+function render(){
+  const D=PF.D, s=D.settings, P=PF.plan(), stock=PF.stock();
+  $('pnav').innerHTML=PF.nav('Forecast'); $('banner').innerHTML=PF.banner();
+  const lastM=[...D.months].sort((a,b)=>a.month.localeCompare(b.month)).pop();
+  $('stats').innerHTML=`
+    <div class="stat"><div class="l">Stock on hand</div><div class="v">${f(s.stock_on_hand)}</div><div class="s">Counted ${PF.short(s.stock_as_of)}</div></div>
+    <div class="stat"><div class="l">Expected to sell</div><div class="v">${f(P.gross)}</div><div class="s">${s.stock_as_of?PF.short(s.stock_as_of):''} to end of ${lastM?PF.monthName(lastM.month):'–'}</div></div>
+    <div class="stat"><div class="l">Pieces to produce</div><div class="v">${f(P.toProduce)}</div><div class="s">After the stock we hold</div></div>
+    <div class="stat"><div class="l">Planned on runs</div><div class="v">${f(P.planned)}</div><div class="s">${P.runs.length} runs still to land</div></div>
+    <div class="stat ${P.unassigned>0?'warn':''}"><div class="l">Still to plan</div><div class="v">${f(P.unassigned)}</div><div class="s">${P.unassigned>0?'Pieces not on any run yet':'Covered'}</div></div>`;
+
+  // runs
+  const fixed=P.runs.filter(r=>!r.is_remainder).reduce((a,r)=>a+PF.runPieces(r.id),0);
+  let tp=0,ty=0;
+  const rows=PF.runsSorted().map(r=>{
+    const pcs=PF.runPieces(r.id), yd=PF.runYards(r.id); tp+=pcs; ty+=yd;
+    const inPlan=P.runs.includes(r);
+    const target=r.is_remainder?Math.max(0,Math.round(P.toProduce-fixed)):r.target;
+    const gap=target==null?null:pcs-target;
+    const fids=[...new Set(PF.runLines(r.id).map(l=>l.fabric_id).filter(Boolean))];
+    const short=fids.filter(id=>{const v=PF.leftAfterRun(stock,id,r.id); return v!=null&&v<-0.5;}).length;
+    const unl=PF.runLines(r.id).filter(l=>!l.fabric_id).length;
+    return `<tr>
+      <td>${PF.short(r.run_date)}</td>
+      <td><a class="runname" href="../production-runs/?run=${r.id}">${J.esc(r.name)}</a>${inPlan?'':' <span class="pill">Landed</span>'}${r.tracker_gid?` <a class="muted" href="${TRACKER}${r.tracker_gid}" target="_blank" rel="noopener" title="Open the tab in the Bangladesh tracker">↗ tracker</a>`:''}</td>
+      <td>${PF.short(PF.landing(r))}</td>
+      <td><select class="in" data-status="${r.id}">${STATUSES.map(x=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select></td>
+      <td class="n">${r.is_remainder?`<span title="Takes whatever is left">${f(target)} <span class="muted">rest</span></span>`:`<input class="in num tgt" type="number" min="0" data-target="${r.id}" value="${r.target??''}">`}</td>
+      <td class="n"><b>${f(pcs)}</b></td>
+      <td class="n">${gap==null?'':gap<0?`<span class="neg">${f(gap)}</span>`:gap>0?`<span class="pos">+${f(gap)}</span>`:'✓'}</td>
+      <td class="n">${f(yd)}</td>
+      <td>${pcs===0?'<span class="muted">No lines yet</span>':short?`<span class="pill warn">${short} fabric${short>1?'s':''} short</span>`:'<span class="pill ok">Covered</span>'}${unl?` <span class="pill">${unl} unlinked</span>`:''}</td>
+      <td class="n"><button class="ib" data-edit="${r.id}" title="Edit run">✎</button></td></tr>`;
+  }).join('');
+  $('runsTbl').innerHTML=`<thead><tr><th>Run</th><th>Name</th><th>Lands UK</th><th>Status</th><th class="n">Target</th><th class="n">Planned</th><th class="n">vs target</th><th class="n">Yards</th><th>Fabric</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="10" class="muted">No runs yet.</td></tr>'}</tbody>
+    <tfoot><tr><td colspan="5">All runs</td><td class="n">${f(tp)}</td><td></td><td class="n">${f(ty)}</td><td colspan="2"></td></tr></tfoot>`;
+
+  // cover
+  const cv=PF.cover(); const mx=Math.max(1,...cv.map(c=>Math.max(c.start,c.end)));
+  $('coverTbl').innerHTML=`<thead><tr><th>Month</th><th class="n">Stock at start</th><th class="n">+ Landing</th><th class="n">− Expected sales</th><th class="n">Stock at end</th><th></th></tr></thead><tbody>${
+    cv.map(c=>`<tr><td>${PF.monthName(c.month)}${c.need&&c.month<=(s.stock_as_of||'')?' <span class="muted">(rest of month)</span>':''}</td><td class="n">${f(c.start)}</td><td class="n">${c.landing?f(c.landing):'–'}</td><td class="n">${f(c.need)}</td>
+      <td class="n ${c.end<0?'neg':''}">${f(c.end)}</td><td><div class="bar"><i class="${c.end<0?'over':''}" style="width:${Math.min(100,Math.abs(c.end)/mx*100)}%"></i></div></td></tr>`).join('')
+  }</tbody>`;
+
+  // fabric to watch
+  const watch=[...stock.values()].filter(o=>o.byRun.length&&(o.state!=='ok'||o.etaLate))
+    .sort((a,b)=>(a.orderBy||a.needBy||'9').localeCompare(b.orderBy||b.needBy||'9'));
+  $('fabList').innerHTML=watch.length?watch.slice(0,10).map(o=>`<li><span class="nm"><b>${J.esc(o.f.name)}</b> – ${J.esc(o.f.colour)}</span>
+     <span class="${o.left<0?'neg':''}" title="Stock we hold, minus every run">${f(o.left)} yd after runs</span>${o.onOrder||o.planned?`<span class="muted">→</span><span class="${o.leftAll<-0.5?'neg':''}" title="Including orders placed and planned">${f(o.leftAll)} with orders</span>`:''}
+     ${o.state==='ordered'?'<span class="pill info">Covered by order</span>':o.state==='planned'?'<span class="pill info">Covered by planned order</span>':'<span class="pill warn">Short</span>'}
+     ${o.etaLate?'<span class="pill warn">Order lands after it\'s needed</span>':''}
+     <span class="muted">${o.needBy?'Needed in Dhaka by '+PF.short(o.needBy):''}${o.orderBy?' · order by '+PF.short(o.orderBy):''}</span></li>`).join('')
+    +(watch.length>10?`<li class="muted">and ${watch.length-10} more on Fabric Stock</li>`:'')
+    :'<li class="muted">Every fabric on a run is covered by the stock we hold.</li>';
+
+  // settings
+  $('setGrid').innerHTML=SETTINGS.map(([k,l,t])=>`<div class="field"><label for="s_${k}">${l}</label><input id="s_${k}" type="${t}" data-set="${k}" value="${s[k]??''}"></div>`).join('');
+  $('monthGrid').innerHTML=[...D.months].sort((a,b)=>a.month.localeCompare(b.month)).map(m=>`<div class="field"><label>${PF.monthName(m.month)}</label><input type="number" min="0" data-month="${m.month}" value="${m.pieces}"><button class="ib del" data-delmonth="${m.month}" title="Remove month">×</button></div>`).join('');
+  const asofM=P.rows.find(r=>r.share>0&&r.share<1);
+  $('formula').innerHTML=`Pieces to produce = ${asofM?`rest of ${PF.monthName(asofM.month)} (<b>${f(asofM.need)}</b> = ${f(asofM.pieces)} × ${Math.round(asofM.share*100)}%) + `:''}later months (<b>${f(P.gross-(asofM?asofM.need:0))}</b>) − sellable stock (<b>${f(P.usable)}</b>) = <b>${f(P.toProduce)}</b>`;
+}
+
+// events
+document.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.dataset.status){ const r=PF.run(t.dataset.status); r.status=t.value; await PF.put('runs',r); render(); }
+  else if(t.dataset.target){ const r=PF.run(t.dataset.target); r.target=t.value===''?null:Math.max(0,Math.round(+t.value)); await PF.put('runs',r); render(); }
+  else if(t.dataset.set){ const k=t.dataset.set, v=t.type==='number'?(t.value===''?0:+t.value):(t.value||null); await PF.saveSettings({[k]:v}); render(); }
+  else if(t.dataset.month){ await PF.put('months',{month:t.dataset.month,pieces:Math.max(0,Math.round(+t.value||0))}); render(); }
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.edit) openRun(PF.run(b.dataset.edit));
+  else if(b.dataset.delmonth){ if(b.dataset.sure){ await PF.del('months',b.dataset.delmonth); render(); } else { b.dataset.sure=1; b.textContent='Sure?'; setTimeout(()=>{delete b.dataset.sure; b.textContent='×';},2500);} }
+  else if(b.hasAttribute('data-close')) $('runModal').classList.remove('on');
+});
+$('btnAddMonth').onclick=async()=>{
+  const ms=[...PF.D.months].sort((a,b)=>a.month.localeCompare(b.month)); const last=ms.length?ms[ms.length-1].month:J.today().slice(0,8)+'01';
+  const next=ms.length?PF.addDays(last,32).slice(0,8)+'01':last;
+  await PF.put('months',{month:next,pieces:0}); render();
+};
+let editing=null;
+$('rmStatus').innerHTML=STATUSES.map(x=>`<option>${x}</option>`).join('');
+function openRun(r){
+  editing=r||null; $('rmTitle').textContent=r?'Edit run':'New run';
+  $('rmName').value=r?r.name:'General Restock'; $('rmDate').value=r?r.run_date:'';
+  $('rmStatus').value=r?r.status:'Planning'; $('rmTarget').value=r?.target??''; $('rmRem').value=r?.is_remainder?'1':'0';
+  $('rmGid').value=r?.tracker_gid??''; $('rmNotes').value=r?.notes??''; $('rmDel').classList.toggle('hidden',!r); $('rmDel').textContent='Delete run';
+  $('runModal').classList.add('on'); $('rmName').focus();
+}
+$('btnAddRun').onclick=()=>openRun(null);
+$('rmSave').onclick=async()=>{
+  const name=$('rmName').value.trim(), date=$('rmDate').value; if(!name||!date){ J.toast('Add a name and a run date'); return; }
+  const gm=$('rmGid').value.match(/gid=(\d+)/)||$('rmGid').value.match(/^\s*(\d+)\s*$/);
+  const row={...(editing||{}),name,run_date:date,status:$('rmStatus').value,target:$('rmTarget').value===''?null:Math.round(+$('rmTarget').value),
+    is_remainder:$('rmRem').value==='1',tracker_gid:gm?+gm[1]:null,notes:$('rmNotes').value.trim()||null};
+  if(await PF.put('runs',row)){ $('runModal').classList.remove('on'); render(); J.toast('Run saved'); }
+};
+$('rmDel').onclick=async()=>{
+  const b=$('rmDel'); const n=PF.runLines(editing.id).length;
+  if(!b.dataset.sure){ b.dataset.sure=1; b.textContent=n?`Delete run and its ${n} lines?`:'Tap again to delete'; setTimeout(()=>{delete b.dataset.sure; b.textContent='Delete run';},3000); return; }
+  await PF.del('runs',editing.id); $('runModal').classList.remove('on'); render(); J.toast('Run deleted');
+};
+$('actRefresh').onclick=async()=>{ await PF.load(); render(); J.toast('Up to date'); };
+$('actCsv').onclick=()=>J.csv('jawda-production-runs.csv',['Run date','Name','Lands UK','Status','Target','Planned pieces','Yards'],
+  PF.runsSorted().map(r=>[r.run_date,r.name,PF.landing(r),r.status,r.target??'',PF.runPieces(r.id),Math.round(PF.runYards(r.id))]));
+J.boot(async()=>{ await PF.load(); render(); if(J.mode==='remote') J.setSave('Saved for the team'); });
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="robots" content="noindex, nofollow">
+<title>Production Runs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<link rel="stylesheet" href="../production/pf.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+.runchips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin:0 0 8px;scrollbar-width:thin}
+.rc{flex:none;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:150px;box-shadow:var(--shadow)}
+.rc .d{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rc .nm{font-weight:600;color:var(--crater);font-size:14px;white-space:nowrap}
+.rc .p{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rc.on{background:var(--crater);border-color:var(--crater)}
+.rc.on .d,.rc.on .p{color:var(--eagle)} .rc.on .nm{color:var(--pearl)}
+.rc.done{opacity:.7}
+.runhead{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end;padding:16px}
+.runhead h2{font-family:var(--serif);font-style:italic;font-weight:500;font-size:26px;margin:0;color:var(--crater);text-transform:none;letter-spacing:-.01em}
+.runhead .meta{color:var(--muted);font-size:14px}
+.runhead .kv{display:flex;flex-direction:column;gap:2px}
+.runhead .kv .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.runhead .kv .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--crater)}
+.runhead .prog{flex:1 1 200px}
+.runhead .prog .bar{height:8px;margin-top:6px}
+tr.dh td{background:#F1EADF!important;border-bottom:1px solid var(--line)}
+tr.dh .dname{font-weight:600;color:var(--crater);font-size:15px;width:100%;max-width:340px}
+.sizes{display:flex;gap:4px;flex-wrap:nowrap}
+.sz{display:flex;flex-direction:column;align-items:center}
+.sz span{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.sz input{width:44px;text-align:center;padding:4px 2px}
+.fsel{width:250px;max-width:250px;font-size:13px}
+.tog{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);white-space:nowrap}
+.tog.on{background:#E7EFE4;border-color:#C9DAC4;color:#4E7247}
+.cons{width:60px}
+.addline{display:grid;grid-template-columns:2fr 1fr 2fr .8fr auto;gap:10px;align-items:end;padding:14px;border-top:1px solid var(--line);background:#fff8}
+@media (max-width:860px){ .addline{grid-template-columns:1fr 1fr} .runhead h2{font-size:22px} }
+</style>
+</head>
+<body>
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Production runs</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" id="pnav" aria-label="Production pages"></nav>
+    <div class="grow"></div>
+    <span class="wip">Work in progress</span>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export this run to CSV</button>
+        <hr>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="banner"></div>
+    <div class="intro"><div class="left">
+      <h1>Production runs</h1>
+      <p class="lede">Each run's designs, fabric colours and sizes. Pieces, yards and fabric left update as you type.</p>
+    </div></div>
+    <div class="wipnote"><b>Work in progress.</b> The tabs in the Bangladesh tracker are still what the factory works from. These lines were copied from them on 25 Oct 2026.</div>
+
+    <div class="runchips" id="chips"></div>
+    <div class="card" id="head"></div>
+
+    <div class="card">
+      <h2>Designs on this run <span class="r muted" id="moqNote"></span></h2>
+      <div class="scroll"><table class="t" id="lines"></table></div>
+      <form class="addline" id="addForm" autocomplete="off">
+        <div class="field"><label for="nDesign">Add a design</label><input id="nDesign" list="designList" placeholder="e.g. Kimono Abaya" required></div>
+        <div class="field"><label for="nSizes">Sizes</label><select id="nSizes"><option value="50,52,54,56,58,60">Abaya 50–60</option><option value="XS,S,M,L,XL">XS–XL</option><option value="ONE">One size</option></select></div>
+        <div class="field"><label for="nFabric">Fabric</label><select id="nFabric"></select></div>
+        <div class="field"><label for="nCons">Yards / piece</label><input id="nCons" type="number" step="0.01" min="0" placeholder="e.g. 3.1"></div>
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      <datalist id="designList"></datalist>
+    </div>
+
+    <div class="card">
+      <h2>Fabric this run uses <span class="r muted">Left = counted stock + purchases − every run up to and including this one</span></h2>
+      <div class="scroll"><table class="t" id="fabs"></table></div>
+    </div>
+  </main>
+</section>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script src="../production/pf.js"></script>
+<script>
+const TRACKER='https://docs.google.com/spreadsheets/d/134V1xi7YLlEau3UEKVopaaFhW9KwLtq5Wh8UIvqk2JM/edit#gid=';
+const STATUSES=['Planning','Approved','In production','Shipped','Delivered'];
+const ORDER=['XXS','XS','S','M','L','XL','XXL','3XL','ONE'];
+const sizeKeys=o=>Object.keys(o||{}).sort((a,b)=>{const na=+a,nb=+b; if(!isNaN(na)&&!isNaN(nb)) return na-nb; const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+const f=PF.fmt;
+let RUN=null;
+
+function fabricOptions(sel){
+  const groups=new Map(); for(const x of [...PF.D.fabrics].sort((a,b)=>(a.sort??0)-(b.sort??0))){ if(!groups.has(x.name)) groups.set(x.name,[]); groups.get(x.name).push(x); }
+  const shortName=n=>n.replace(/\s*\(.*?\)\s*/g,' ').trim();
+  return `<option value="">– Choose fabric –</option>`+[...groups].map(([n,xs])=>`<optgroup label="${J.esc(n)}">${xs.map(x=>`<option value="${x.id}"${x.id===sel?' selected':''}>${J.esc(x.colour)} · ${J.esc(shortName(n))}</option>`).join('')}</optgroup>`).join('');
+}
+function pickRun(){
+  const q=new URLSearchParams(location.search).get('run'); const runs=PF.runsSorted();
+  RUN=runs.find(r=>r.id===q)||runs.find(r=>r.status==='Planning'&&r.run_date>=J.today())||runs[0]||null;
+}
+function groups(){
+  const g=new Map(); for(const l of PF.runLines(RUN.id)){ if(!g.has(l.design)) g.set(l.design,[]); g.get(l.design).push(l); } return g;
+}
+
+function render(){
+  $('pnav').innerHTML=PF.nav('Runs'); $('banner').innerHTML=PF.banner();
+  const runs=PF.runsSorted();
+  $('chips').innerHTML=runs.map(r=>`<button class="rc ${RUN&&r.id===RUN.id?'on':''} ${['Shipped','Delivered'].includes(r.status)?'done':''}" data-run="${r.id}"><div class="d">${PF.short(r.run_date)} · ${J.esc(r.status)}</div><div class="nm">${J.esc(r.name)}</div><div class="p">${f(PF.runPieces(r.id))} pcs</div></button>`).join('');
+  if(!RUN){ $('head').innerHTML='<div class="body muted">No runs yet – add one on the Forecast page.</div>'; $('lines').innerHTML=''; $('fabs').innerHTML=''; return; }
+  history.replaceState(null,'','?run='+RUN.id);
+  $('nFabric').innerHTML=fabricOptions('');
+  $('designList').innerHTML=[...new Set(PF.D.lines.map(l=>l.design))].sort().map(d=>`<option value="${J.esc(d)}">`).join('');
+  renderLines(); renderCalc();
+}
+function renderLines(){
+  const s=PF.D.settings, g=groups();
+  let html=`<thead><tr><th>Fabric colour</th><th>Sizes</th><th class="n">Pieces</th><th class="n">Yd / pc</th><th class="n">Yards</th><th>Sample</th><th>Production</th><th></th></tr></thead><tbody>`;
+  if(!g.size) html+='<tr><td colspan="8" class="muted">No designs on this run yet – add one below.</td></tr>';
+  let di=0;
+  for(const [design,ls] of g){
+    const k='d'+(di++);
+    html+=`<tr class="dh"><td colspan="2"><input class="in dname" data-rename="${J.esc(design)}" value="${J.esc(design)}"></td><td class="n" data-dpcs="${k}"></td><td colspan="2" class="n" data-dyds="${k}"></td><td colspan="2" data-dmoq="${k}"></td><td class="n"><button class="btn line sm" data-addcol="${J.esc(design)}" title="Add another colour of this design">＋ Colour</button></td></tr>`;
+    for(const l of ls){
+      const keys=sizeKeys(l.sizes);
+      html+=`<tr data-line="${l.id}" data-dk="${k}">
+        <td><select class="in fsel" data-fab="${l.id}">${fabricOptions(l.fabric_id)}</select>${!l.fabric_id&&l.fabric_label?`<div class="muted">Tracker: ${J.esc(l.fabric_label)}</div>`:''}</td>
+        <td><div class="sizes">${keys.map(z=>`<label class="sz"><span>${z==='ONE'?'Qty':J.esc(z)}</span><input class="in" type="number" min="0" inputmode="numeric" data-size="${J.esc(z)}" data-l="${l.id}" value="${l.sizes[z]}"></label>`).join('')}</div></td>
+        <td class="n"><b data-pcs="${l.id}"></b><div data-cmoq="${l.id}"></div></td>
+        <td class="n"><input class="in num cons" type="number" step="0.01" min="0" data-cons="${l.id}" value="${l.consumption}"></td>
+        <td class="n" data-yds="${l.id}"></td>
+        <td><button class="tog ${l.sample_approved?'on':''}" data-tog="sample_approved" data-l="${l.id}">${l.sample_approved?'✓ Approved':'Pending'}</button></td>
+        <td><button class="tog ${l.production_approved?'on':''}" data-tog="production_approved" data-l="${l.id}">${l.production_approved?'✓ Approved':'Pending'}</button></td>
+        <td class="n" style="white-space:nowrap"><button class="ib" data-dup="${l.id}" title="Duplicate line">⧉</button><button class="ib del" data-del="${l.id}" title="Delete line">×</button></td></tr>`;
+    }
+  }
+  $('lines').innerHTML=html+'</tbody>';
+  $('moqNote').textContent=`Factory minimum: ${s.moq_design} per design, ${s.moq_colour} per colour`;
+}
+// numbers that change while typing
+function renderCalc(){
+  const s=PF.D.settings, ls=PF.runLines(RUN.id), stock=PF.stock();
+  const pcs=ls.reduce((a,l)=>a+PF.pieces(l),0), yds=ls.reduce((a,l)=>a+PF.yards(l),0);
+  for(const l of ls){
+    const p=PF.pieces(l), q=sel=>document.querySelector(sel);
+    const a=q(`[data-pcs="${l.id}"]`); if(a) a.textContent=f(p);
+    const b=q(`[data-yds="${l.id}"]`); if(b) b.textContent=f(PF.yards(l));
+    const c=q(`[data-cmoq="${l.id}"]`); if(c) c.innerHTML=p&&p<s.moq_colour?`<span class="pill warn" title="Below the factory minimum per colour">Under ${s.moq_colour}</span>`:'';
+  }
+  document.querySelectorAll('tr.dh').forEach(tr=>{
+    const k=tr.querySelector('[data-dpcs]').dataset.dpcs; const ids=[...document.querySelectorAll(`tr[data-dk="${k}"]`)].map(x=>x.dataset.line);
+    const dl=ls.filter(l=>ids.includes(l.id)); const dp=dl.reduce((a,l)=>a+PF.pieces(l),0);
+    tr.querySelector('[data-dpcs]').innerHTML=`<b>${f(dp)}</b>`;
+    tr.querySelector('[data-dyds]').textContent=f(dl.reduce((a,l)=>a+PF.yards(l),0))+' yd';
+    tr.querySelector('[data-dmoq]').innerHTML=dp<s.moq_design?`<span class="pill warn">Under the ${s.moq_design} minimum</span>`:`<span class="pill ok">${dl.length} colour${dl.length>1?'s':''}</span>`;
+  });
+  const t=RUN.target, pct=t?Math.min(100,pcs/t*100):0;
+  $('head').innerHTML=`<div class="runhead">
+    <div style="flex:1 1 260px"><h2>${J.esc(RUN.name)}</h2><div class="meta">Run ${PF.short(RUN.run_date)} · lands in the UK ~${PF.short(PF.landing(RUN))} · fabric needed in Dhaka by ${PF.short(PF.addDays(RUN.run_date,-(+s.dhaka_buffer_days||0)))}${RUN.tracker_gid?` · <a href="${TRACKER}${RUN.tracker_gid}" target="_blank" rel="noopener">Open tracker tab ↗</a>`:''}</div></div>
+    <div class="kv"><span class="l">Status</span><select class="in" id="runStatus">${STATUSES.map(x=>`<option${x===RUN.status?' selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="kv"><span class="l">Pieces</span><span class="v">${f(pcs)}</span></div>
+    <div class="kv"><span class="l">Yards</span><span class="v">${f(yds)}</span></div>
+    <div class="kv prog"><span class="l">${RUN.is_remainder?'Remainder run – takes whatever is left':t?`Target ${f(t)} · ${pcs>=t?'met':f(t-pcs)+' to go'}`:'No target set'}</span>${t?`<div class="bar"><i class="${pcs>t?'over':''}" style="width:${pct}%"></i></div>`:''}</div>
+  </div>`;
+  // fabric summary
+  const per=new Map(); for(const l of ls){ const key=l.fabric_id||'none'; per.set(key,(per.get(key)||0)+PF.yards(l)); }
+  const rows=[...per].map(([fid,y])=>{
+    if(fid==='none') return `<tr><td><span class="pill warn">No fabric chosen</span></td><td class="n">${f(y)}</td><td colspan="3"></td></tr>`;
+    const o=stock.get(fid); if(!o) return `<tr><td><span class="pill warn">Fabric was deleted</span></td><td class="n">${f(y)}</td><td colspan="3"></td></tr>`;
+    const left=PF.leftAfterRun(stock,fid,RUN.id), before=left+y;
+    return `<tr><td>${J.esc(PF.fabricName(o.f))} <span class="pill">${J.esc(o.f.status)}</span></td><td class="n">${f(y)}</td><td class="n">${f(before)}</td><td class="n ${left<-0.5?'neg':''}">${f(left)}</td>
+      <td>${left<-0.5?(o.onOrder+o.planned+left>=-0.5?`<span class="pill info">Short – covered by ${o.onOrder?'order':'planned order'}</span>`:'<span class="pill warn">Short</span>'):'<span class="pill ok">Enough</span>'}</td></tr>`;
+  }).join('');
+  $('fabs').innerHTML=`<thead><tr><th>Fabric</th><th class="n">Yards on this run</th><th class="n">Held before this run</th><th class="n">Left after</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</tbody>`;
+  // chips pieces
+  const chip=document.querySelector(`.rc[data-run="${RUN.id}"] .p`); if(chip) chip.textContent=f(pcs)+' pcs';
+}
+const line=id=>PF.D.lines.find(l=>l.id===id);
+const saveLine=l=>PF.later('l'+l.id,()=>PF.put('lines',l));
+
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.size){ const l=line(t.dataset.l); l.sizes={...l.sizes,[t.dataset.size]:Math.max(0,Math.round(+t.value||0))}; saveLine(l); renderCalc(); }
+  else if(t.dataset.cons){ const l=line(t.dataset.cons); l.consumption=Math.max(0,+t.value||0); saveLine(l); renderCalc(); }
+});
+document.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.dataset.fab!==undefined){ const l=line(t.dataset.fab); l.fabric_id=t.value||null; const x=PF.fabric(l.fabric_id); if(x) l.fabric_label=PF.fabricName(x); await PF.put('lines',l); renderCalc(); }
+  else if(t.id==='runStatus'){ RUN.status=t.value; await PF.put('runs',RUN); render(); }
+  else if(t.dataset.rename!==undefined){
+    const from=t.dataset.rename, to=t.value.trim(); if(!to||to===from){ t.value=from; return; }
+    for(const l of PF.runLines(RUN.id).filter(l=>l.design===from)){ l.design=to; await PF.put('lines',l); }
+    renderLines(); renderCalc(); J.toast('Design renamed on this run');
+  }
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.run){ RUN=PF.run(b.dataset.run); render(); window.scrollTo({top:0}); }
+  else if(b.dataset.tog){ const l=line(b.dataset.l); l[b.dataset.tog]=!l[b.dataset.tog]; await PF.put('lines',l); renderLines(); renderCalc(); }
+  else if(b.dataset.dup){ const l=line(b.dataset.dup); const n={...l,id:PF.uuid(),sort:(l.sort??0)+0.5,sizes:{...l.sizes}}; delete n.created_at; await PF.put('lines',n); await resort(); renderLines(); renderCalc(); J.toast('Line duplicated – pick its colour'); }
+  else if(b.dataset.addcol){ const ls=PF.runLines(RUN.id).filter(l=>l.design===b.dataset.addcol); const last=ls[ls.length-1];
+    const sz={}; sizeKeys(last.sizes).forEach(k=>sz[k]=0);
+    await PF.put('lines',{id:PF.uuid(),run_id:RUN.id,design:last.design,fabric_id:null,fabric_label:null,sizes:sz,consumption:last.consumption,sample_approved:last.sample_approved,production_approved:false,sort:(last.sort??0)+0.5});
+    await resort(); renderLines(); renderCalc(); }
+  else if(b.dataset.del){ if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='Sure?'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent='×'; } },2500); return; }
+    await PF.del('lines',b.dataset.del); renderLines(); renderCalc(); J.toast('Line deleted'); }
+});
+async function resort(){ const ls=PF.runLines(RUN.id); for(let i=0;i<ls.length;i++){ if(ls[i].sort!==i){ ls[i].sort=i; await PF.put('lines',ls[i]); } } }
+$('addForm').onsubmit=async e=>{
+  e.preventDefault(); const design=$('nDesign').value.trim(); if(!design) return;
+  const sz={}; $('nSizes').value.split(',').forEach(k=>sz[k]=0);
+  const prev=PF.D.lines.filter(l=>l.design===design).pop();
+  const cons=$('nCons').value!==''?+$('nCons').value:(prev?prev.consumption:0);
+  const fid=$('nFabric').value||null, x=PF.fabric(fid);
+  await PF.put('lines',{id:PF.uuid(),run_id:RUN.id,design,fabric_id:fid,fabric_label:x?PF.fabricName(x):null,sizes:sz,consumption:cons,sample_approved:false,production_approved:false,sort:PF.runLines(RUN.id).length});
+  $('nDesign').value=''; $('nCons').value=''; renderLines(); renderCalc(); J.toast('Design added – fill in the sizes');
+};
+$('nDesign').addEventListener('change',()=>{ const prev=PF.D.lines.filter(l=>l.design===$('nDesign').value.trim()).pop(); if(prev){ $('nCons').value=prev.consumption; $('nSizes').value=sizeKeys(prev.sizes).join(',').includes('XS')?'XS,S,M,L,XL':sizeKeys(prev.sizes)[0]==='ONE'?'ONE':'50,52,54,56,58,60'; } });
+$('actRefresh').onclick=async()=>{ await PF.load(); RUN=RUN&&PF.run(RUN.id); if(!RUN) pickRun(); render(); J.toast('Up to date'); };
+$('actCsv').onclick=()=>{ if(!RUN) return; const ls=PF.runLines(RUN.id);
+  J.csv(`jawda-run-${RUN.run_date}.csv`,['Design','Fabric','Sizes','Pieces','Yards per piece','Yards','Sample approved','Production approved'],
+    ls.map(l=>[l.design,PF.fabricName(PF.fabric(l.fabric_id))||l.fabric_label||'',sizeKeys(l.sizes).map(k=>`${k}:${l.sizes[k]}`).join(' '),PF.pieces(l),l.consumption,Math.round(PF.yards(l)*10)/10,l.sample_approved?'Yes':'No',l.production_approved?'Yes':'No'])); };
+J.boot(async()=>{ await PF.load(); pickRun(); render(); if(J.mode==='remote') J.setSave('Saved for the team'); });
+</script>
+</body>
+</html>
