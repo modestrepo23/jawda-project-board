@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="description" content="Jawda fabric purchases — every fabric bought, with its ID, source, colour and quantity.">
+<title>Fabric Purchases</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../production/shared.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<style>
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 18px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+.stat .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--crater);line-height:1.2}
+.stat .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.addcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin:0 0 22px}
+.addcard h2{margin:0 0 12px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:10px}
+.addcard h2 .idprev{margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}
+.addcard h2 .idprev b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid var(--line);padding:2px 8px;border-radius:6px;color:var(--crater)}
+.fgrid{display:grid;grid-template-columns:140px 1fr 1.2fr 1.3fr 1fr;gap:12px}
+.fgrid2{display:grid;grid-template-columns:1.1fr 1.6fr 2fr;gap:12px;margin-top:12px}
+.field label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;outline:0}
+.field input:focus,.field select:focus{border-color:var(--ash)}
+.seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.seg button{flex:1;padding:7px 8px;border-radius:6px;font-size:14px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--crater);color:var(--pearl)}
+.qty{display:flex;gap:6px;align-items:stretch}
+.qty input{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.quick{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:500;color:var(--muted)}
+.quick button:hover{border-color:var(--ash);color:var(--ink)}
+.actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap}
+.actions .hint{color:var(--muted);font-size:12px;margin-right:auto}
+.btn{padding:10px 18px;border-radius:999px;font-weight:500;font-size:14px}
+.btn.primary{background:var(--umber);color:#fff}
+.btn.dark{background:var(--crater);color:var(--pearl)}
+.btn.line{border:1px solid var(--line);background:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.tr{display:grid;grid-template-columns:96px 88px 80px minmax(140px,1.4fr) minmax(100px,1fr) 70px 130px minmax(140px,1.6fr) 40px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line)}
+.tr:last-child{border-bottom:0}
+.tr.head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:#fff8}
+.tr.head button{font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;text-align:left;padding:0}
+.tr.head button.on{color:var(--crater);font-weight:600}
+.tr:not(.head){background:#fff6}
+.tr:not(.head):hover{background:#fff}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;font-weight:600;color:var(--crater)}
+.src{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;color:#fff}
+.src.Nice{background:#4D3B2D}.src.Sadia{background:#4E7247}.src.Market{background:#B5884A}
+.date{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.qcell{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.qcell input{width:84px;padding:6px 8px;border:1px solid transparent;border-radius:6px;background:transparent;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;outline:0}
+.qcell input:hover{border-color:var(--line);background:#fff}
+.qcell input:focus{border-color:var(--ash);background:#fff}
+.qcell .u{font-size:12px;color:var(--muted);width:34px}
+.mk{font-size:13px;color:var(--suede);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.mk.none{color:var(--eagle)}
+.edit{color:var(--muted);font-size:18px;line-height:1;padding:4px 6px;border-radius:6px}
+.edit:hover{background:var(--pearl);color:var(--ink)}
+.tfoot{display:flex;gap:16px;justify-content:flex-end;padding:10px 14px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);background:#fff8;font-variant-numeric:tabular-nums}
+.tfoot b{color:var(--ink)}
+
+.modal{position:fixed;inset:0;z-index:50;display:none;place-items:center;padding:16px;background:rgba(43,26,30,.35)}
+.modal.on{display:grid}
+.modal .mc{background:var(--panel);width:min(620px,100%);border-radius:14px;box-shadow:var(--shadow);max-height:92vh;display:flex;flex-direction:column}
+.modal .mh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal .mh .x{margin-left:auto;font-size:22px;color:var(--muted);padding:4px 8px}
+.modal .mb{padding:18px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal .mb .wide{grid-column:1/-1}
+.modal .mf{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.modal .mf .del{color:var(--umber);font-size:13px;font-weight:500}
+.modal .mf .del.arm{background:var(--umber);color:#fff;padding:8px 12px;border-radius:999px}
+.modal .mf .save{margin-left:auto}
+
+@media (max-width:980px){
+  .fgrid{grid-template-columns:1fr 1fr}
+  .fgrid2{grid-template-columns:1fr}
+}
+@media (max-width:560px){ .fgrid{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
+@media (max-width:760px){
+  .tr.head{display:none}
+  .tr{grid-template-columns:1fr auto;grid-template-areas:"code qty" "desc qty" "meta meta" "mk mk";gap:4px 10px;padding:12px}
+  .tr>.c-date{display:none}
+  .tr>.c-code{grid-area:code}
+  .tr>.c-src,.tr>.c-col,.tr>.c-meas{display:none}
+  .tr>.c-desc{grid-area:desc}
+  .tr>.c-qty{grid-area:qty}
+  .tr>.c-meta{grid-area:meta;display:block!important}
+  .tr>.c-mk{grid-area:mk}
+  .tr>.c-edit{position:absolute;right:8px;top:8px}
+  .tr{position:relative}
+  .tfoot{flex-wrap:wrap;justify-content:flex-start}
+  .modal .mb{grid-template-columns:1fr}
+}
+.c-meta{display:none}
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <form class="card" id="loginForm" autocomplete="off">
+    <img class="logo" src="../logo-crater.png" alt="Jawda">
+    <p>Fabric purchases</p>
+    <input type="password" id="pw" placeholder="Team password" autocomplete="current-password" required>
+    <button type="submit">Enter</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" aria-label="Production pages">
+      <a href="../production/">Home</a>
+      <a href="../fabric-matrix/">Fabric Matrix</a>
+      <a href="./" class="on" aria-current="page">Fabric Purchases</a>
+    </nav>
+    <div class="grow"></div>
+    <span class="save-state" id="saveState"></span>
+    <div class="menu" id="dataMenu">
+      <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
+      <div class="dd">
+        <button id="actRefresh">Refresh</button>
+        <button id="actCsv">Export purchases to CSV</button>
+        <hr>
+        <a href="../">Jawda Board</a>
+        <button id="actSignout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="banner"></div>
+    <div class="intro">
+      <div class="left">
+        <h1>Fabric purchases</h1>
+        <p class="lede">Every fabric we've bought, from the mills or the market. Each purchase gets its own ID, so we can track it into inventory and production.</p>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <form class="addcard" id="addForm" autocomplete="off">
+      <h2>Add a purchase <span class="idprev">ID: <b id="idPrev">—</b></span></h2>
+      <div class="fgrid">
+        <div class="field"><label for="aDate">Date entered</label><input type="date" id="aDate" required></div>
+        <div class="field"><label>Source</label><div class="seg" id="aSource"><button type="button" data-v="Nice">Nice</button><button type="button" data-v="Sadia">Sadia</button><button type="button" data-v="Market">Market</button></div></div>
+        <div class="field"><label for="aType">Fabric type</label><select id="aType" required></select></div>
+        <div class="field"><label for="aDesc">Product description</label><input id="aDesc" placeholder="e.g. Fleece Fabric" required></div>
+        <div class="field"><label for="aColour">Colour</label><input id="aColour" list="colourList" placeholder="e.g. Black" required></div>
+      </div>
+      <div class="fgrid2">
+        <div class="field"><label>Measure</label><div class="seg" id="aMeasure"><button type="button" data-v="yards">Yards</button><button type="button" data-v="kg">Kg</button></div></div>
+        <div class="field"><label for="aQty">Quantity</label>
+          <div class="qty"><input type="number" id="aQty" inputmode="decimal" min="0" step="any" placeholder="0" required></div>
+          <div class="quick" id="quick"><button type="button" data-q="100">+100</button><button type="button" data-q="250">+250</button><button type="button" data-q="500">+500</button><button type="button" data-q="1000">+1,000</button><button type="button" data-q="3000">+3,000</button><button type="button" data-q="0">Clear</button></div>
+        </div>
+        <div class="field"><label for="aMake">What we can make from it</label><input id="aMake" placeholder="e.g. Mock Neck Jumper Abaya, Welt Pocket Dress"></div>
+      </div>
+      <div class="actions">
+        <span class="hint">Press Enter to add. "Add & next colour" keeps everything except the colour and quantity.</span>
+        <button type="button" class="btn line" id="btnNext">Add &amp; next colour</button>
+        <button type="submit" class="btn primary" id="btnAdd">Add purchase</button>
+      </div>
+      <datalist id="colourList"></datalist>
+    </form>
+
+    <div class="filters" id="filters">
+      <input type="search" id="fSearch" placeholder="Search ID, fabric, colour…">
+      <button type="button" class="chip" data-src="Nice">Nice</button>
+      <button type="button" class="chip" data-src="Sadia">Sadia</button>
+      <button type="button" class="chip" data-src="Market">Market</button>
+      <select id="fType" aria-label="Fabric type"><option value="">All fabric types</option></select>
+      <span class="count" id="fCount"></span>
+    </div>
+    <div class="tbl" id="tbl"></div>
+  </main>
+</section>
+
+<div class="modal" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+  <form class="mc" id="editForm" autocomplete="off">
+    <div class="mh"><strong id="editTitle">Edit purchase</strong><span class="code" id="eCode"></span><button type="button" class="x" id="eClose" aria-label="Close">×</button></div>
+    <div class="mb">
+      <div class="field"><label for="eDate">Date entered</label><input type="date" id="eDate" required></div>
+      <div class="field"><label for="eSource">Source</label><select id="eSource"><option>Nice</option><option>Sadia</option><option>Market</option></select></div>
+      <div class="field"><label for="eType">Fabric type</label><select id="eType"></select></div>
+      <div class="field"><label for="eDesc">Product description</label><input id="eDesc" required></div>
+      <div class="field"><label for="eColour">Colour</label><input id="eColour" list="colourList" required></div>
+      <div class="field"><label for="eMeasure">Measure</label><select id="eMeasure"><option value="yards">Yards</option><option value="kg">Kg</option></select></div>
+      <div class="field"><label for="eQty">Quantity</label><input type="number" id="eQty" min="0" step="any" required></div>
+      <div class="field wide"><label for="eMake">What we can make from it</label><input id="eMake"></div>
+      <p class="muted wide" style="margin:0">The ID stays the same if you change the source or fabric type.</p>
+    </div>
+    <div class="mf"><button type="button" class="del" id="eDel">Delete purchase</button><button type="submit" class="btn dark save">Save</button></div>
+  </form>
+</div>
+<div id="toast"></div>
+
+<script src="../production/shared.js"></script>
+<script>
+const DEFAULT_TYPES=[
+  ['ct','Cotton Tencel'],['hc','Heavy Cotton'],['sc','Striped Cotton'],['fl','Fleece'],['dn','Denim'],
+  ['tw','Cotton Twill'],['lc','Linen Cotton'],['cv','Cotton Viscose'],['tx','Textured Cotton'],['pc','Polycotton'],
+  ['sp','Slub Polycotton'],['cr','Crepe'],['pl','Polyester Linen-Look'],['dp','Dobby Print'],['le','Linen Cotton Elastane'],
+];
+const LS_ROWS='jfp.rows', LS_TYPES='jfp.types', LS_LAST='jfp.last';
+const P={rows:[], q:'', src:new Set(), type:'', sort:{k:'entered_on',dir:-1}, editing:null};
+let customTypes=J.safe(J.get(LS_TYPES),[]);
+
+function types(){
+  const m=new Map(DEFAULT_TYPES);
+  customTypes.forEach(([c,n])=>m.set(c,n));
+  P.rows.forEach(r=>{ if(!m.has(r.fabric_type)) m.set(r.fabric_type, r.description.replace(/\s*fabric$/i,'')); });
+  return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+}
+function typeName(c){ const t=types().find(x=>x[0]===c); return t?t[1]:c; }
+function fillTypeSelects(){
+  const opts=types().map(([c,n])=>`<option value="${c}">${J.esc(n)} (${c})</option>`).join('');
+  const keepA=$('aType').value, keepE=$('eType').value, keepF=$('fType').value;
+  $('aType').innerHTML=opts+'<option value="__new">＋ New fabric type…</option>';
+  $('eType').innerHTML=opts;
+  $('fType').innerHTML='<option value="">All fabric types</option>'+types().filter(([c])=>P.rows.some(r=>r.fabric_type===c)).map(([c,n])=>`<option value="${c}">${J.esc(n)} (${c})</option>`).join('');
+  if(keepA && keepA!=='__new') $('aType').value=keepA; if(keepE) $('eType').value=keepE; $('fType').value=keepF;
+}
+
+// ---------- data ----------
+async function load(){
+  if(J.sb){
+    const {data,error}=await J.sb.from('fabric_purchases').select('*').order('entered_on',{ascending:false}).order('created_at',{ascending:false});
+    if(!error){ J.mode='remote'; P.rows=data; $('banner').innerHTML=''; J.setSave('Saved for the team'); return; }
+  }
+  J.mode='local'; P.rows=J.safe(J.get(LS_ROWS),[]);
+  $('banner').innerHTML=J.sb
+    ? '<div class="banner">Purchases are saving on this device only. To share them with the team, run <code>fabric-purchases/setup.sql</code> once in Supabase → SQL Editor, then refresh.</div>'
+    : '<div class="banner">Purchases are saving on this device only.</div>';
+  J.setSave('Saved on this device');
+}
+function nextCode(source,type){
+  const prefix=source[0].toUpperCase()+type.toLowerCase();
+  const n=P.rows.filter(r=>(r.fabric_code||'').startsWith(prefix)).map(r=>parseInt(r.fabric_code.slice(3),10)).filter(x=>!isNaN(x));
+  return prefix+String((n.length?Math.max(...n):0)+1).padStart(3,'0');
+}
+async function insertRow(obj){
+  if(J.mode==='remote'){
+    J.setSave('Saving…');
+    const {data,error}=await J.sb.from('fabric_purchases').insert(obj).select().single();
+    if(error){ J.setSave('Not saved'); J.toast('Couldn\'t save – '+(error.message||'check your connection')); return null; }
+    P.rows.unshift(data); J.setSave('Saved for the team'); return data;
+  }
+  const row=Object.assign({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),fabric_code:nextCode(obj.source,obj.fabric_type),created_at:new Date().toISOString()},obj);
+  P.rows.unshift(row); J.set(LS_ROWS,JSON.stringify(P.rows)); return row;
+}
+async function updateRow(id,patch){
+  const i=P.rows.findIndex(r=>r.id===id); if(i<0) return false;
+  const prev=Object.assign({},P.rows[i]); Object.assign(P.rows[i],patch);
+  if(J.mode==='remote'){
+    J.setSave('Saving…');
+    const {error}=await J.sb.from('fabric_purchases').update(patch).eq('id',id);
+    if(error){ P.rows[i]=prev; render(); J.setSave('Not saved'); J.toast('Couldn\'t save – check your connection'); return false; }
+    J.setSave('Saved for the team');
+  } else J.set(LS_ROWS,JSON.stringify(P.rows));
+  return true;
+}
+async function deleteRow(id){
+  const i=P.rows.findIndex(r=>r.id===id); if(i<0) return;
+  const prev=P.rows[i]; P.rows.splice(i,1);
+  if(J.mode==='remote'){
+    const {error}=await J.sb.from('fabric_purchases').delete().eq('id',id);
+    if(error){ P.rows.splice(i,0,prev); J.toast('Couldn\'t delete – check your connection'); }
+  } else J.set(LS_ROWS,JSON.stringify(P.rows));
+}
+
+// ---------- add form ----------
+const A={source:'Nice', measure:'yards'};
+function segInit(id,key){ const el=$(id); el.onclick=e=>{const b=e.target.closest('button[data-v]'); if(!b) return; A[key]=b.dataset.v; segPaint(id,A[key]); updatePreview(); J.set(LS_LAST,JSON.stringify(A));}; }
+function segPaint(id,v){ $(id).querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }
+function updatePreview(){ const t=$('aType').value; $('idPrev').textContent = t && t!=='__new' ? nextCode(A.source,t) : '—'; }
+let descTouched=false;
+function autoDesc(){ if(descTouched) return; const t=$('aType').value; if(t&&t!=='__new') $('aDesc').value=typeName(t)+' Fabric'; }
+
+async function submitAdd(keep){
+  const t=$('aType').value;
+  if(!t||t==='__new'){ $('aType').focus(); return; }
+  const qty=parseFloat($('aQty').value);
+  if(!$('aColour').value.trim()){ $('aColour').focus(); return; }
+  if(isNaN(qty)||qty<0){ $('aQty').focus(); return; }
+  const obj={entered_on:$('aDate').value||J.today(), source:A.source, fabric_type:t, description:$('aDesc').value.trim()||typeName(t)+' Fabric', colour:$('aColour').value.trim(), measure:A.measure, quantity:qty, can_make:$('aMake').value.trim()||null};
+  $('btnAdd').disabled=$('btnNext').disabled=true;
+  const row=await insertRow(obj);
+  $('btnAdd').disabled=$('btnNext').disabled=false;
+  if(!row) return;
+  J.toast(`Added ${row.fabric_code} – ${row.colour}, ${J.num(row.quantity)} ${row.measure}`);
+  $('aColour').value=''; $('aQty').value='';
+  if(!keep){ $('aMake').value=''; }
+  fillTypeSelects(); render(); updatePreview(); $('aColour').focus();
+}
+
+// ---------- render ----------
+function filtered(){
+  const q=P.q.toLowerCase();
+  return P.rows.filter(r=>{
+    if(P.src.size && !P.src.has(r.source)) return false;
+    if(P.type && r.fabric_type!==P.type) return false;
+    if(q && !`${r.fabric_code} ${r.description} ${r.colour} ${r.source} ${typeName(r.fabric_type)} ${r.can_make||''}`.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>{const k=P.sort.k; let x=a[k],y=b[k]; if(k==='quantity'){x=+x;y=+y;} else {x=String(x||'');y=String(y||'');} if(x<y) return -1*P.sort.dir; if(x>y) return P.sort.dir; return String(b.created_at||'').localeCompare(String(a.created_at||''));});
+}
+function render(){
+  const rows=filtered();
+  const sum=(arr,m)=>arr.filter(r=>r.measure===m).reduce((s,r)=>s+ +r.quantity,0);
+  $('stats').innerHTML=[
+    [P.rows.length,'Purchases'],
+    [J.num(sum(P.rows,'yards')),'Yards bought'],
+    [J.num(sum(P.rows,'kg')),'Kg bought'],
+    [new Set(P.rows.map(r=>r.fabric_type)).size,'Fabric types'],
+    [new Set(P.rows.map(r=>r.fabric_type+'|'+r.colour.toLowerCase())).size,'Fabric colours'],
+  ].map(([v,l])=>`<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  const sb=(k,l)=>`<button type="button" data-sort="${k}" class="${P.sort.k===k?'on':''}">${l}${P.sort.k===k?(P.sort.dir<0?' ↓':' ↑'):''}</button>`;
+  let h=`<div class="tr head"><div>${sb('entered_on','Date')}</div><div>${sb('fabric_code','ID')}</div><div>${sb('source','Source')}</div><div>${sb('description','Product description')}</div><div>${sb('colour','Colour')}</div><div>Measure</div><div style="text-align:right">${sb('quantity','Quantity')}</div><div>What we can make</div><div></div></div>`;
+  if(!rows.length) h+=`<div class="empty">${P.rows.length?'No purchases match these filters.':'No purchases yet. Add the first one above.'}</div>`;
+  rows.forEach(r=>{
+    h+=`<div class="tr" data-id="${r.id}">
+      <div class="c-date date">${J.fmtDate(r.entered_on)}</div>
+      <div class="c-code"><span class="code">${J.esc(r.fabric_code||'…')}</span></div>
+      <div class="c-src"><span class="src ${r.source}">${r.source}</span></div>
+      <div class="c-desc">${J.esc(r.description)}<div class="muted c-meta"><span class="src ${r.source}">${r.source}</span> · ${J.esc(r.colour)} · ${J.fmtDate(r.entered_on)}</div></div>
+      <div class="c-col">${J.esc(r.colour)}</div>
+      <div class="c-meas muted">${r.measure}</div>
+      <div class="c-qty qcell"><input type="number" min="0" step="any" value="${+r.quantity}" data-qty="${r.id}" aria-label="Quantity for ${J.esc(r.fabric_code)}"><span class="u">${r.measure==='yards'?'yd':'kg'}</span></div>
+      <div class="c-mk mk${r.can_make?'':' none'}" title="${J.esc(r.can_make||'')}">${J.esc(r.can_make||'Not set')}</div>
+      <div class="c-edit"><button type="button" class="edit" data-edit="${r.id}" aria-label="Edit ${J.esc(r.fabric_code)}">✎</button></div>
+    </div>`;
+  });
+  if(rows.length) h+=`<div class="tfoot"><span>Showing <b>${rows.length}</b></span><span>Yards <b>${J.num(sum(rows,'yards'))}</b></span><span>Kg <b>${J.num(sum(rows,'kg'))}</b></span></div>`;
+  $('tbl').innerHTML=h;
+  $('fCount').textContent=`${rows.length} of ${P.rows.length}`;
+  $('colourList').innerHTML=[...new Set(P.rows.map(r=>r.colour))].sort().map(c=>`<option value="${J.esc(c)}">`).join('');
+}
+
+// ---------- edit modal ----------
+function openEdit(id){
+  const r=P.rows.find(x=>x.id===id); if(!r) return; P.editing=id;
+  $('eCode').textContent=r.fabric_code||''; $('eDate').value=r.entered_on; $('eSource').value=r.source; $('eType').value=r.fabric_type;
+  $('eDesc').value=r.description; $('eColour').value=r.colour; $('eMeasure').value=r.measure; $('eQty').value=+r.quantity; $('eMake').value=r.can_make||'';
+  $('eDel').classList.remove('arm'); $('eDel').textContent='Delete purchase';
+  $('editModal').classList.add('on'); $('eQty').focus();
+}
+function closeEdit(){ $('editModal').classList.remove('on'); P.editing=null; }
+
+// ---------- events ----------
+$('aDate').value=J.today();
+const last=J.safe(J.get(LS_LAST),null); if(last){ A.source=last.source||A.source; A.measure=last.measure||A.measure; }
+segInit('aSource','source'); segInit('aMeasure','measure'); segPaint('aSource',A.source); segPaint('aMeasure',A.measure);
+$('aType').onchange=()=>{
+  if($('aType').value==='__new'){
+    const name=(prompt('Name of the new fabric type (e.g. Wool Blend)')||'').trim();
+    const code=name?(prompt('Two-letter code for '+name+' (e.g. wb)')||'').trim().toLowerCase():'';
+    if(name && /^[a-z]{2}$/.test(code)){ customTypes=customTypes.filter(([c])=>c!==code).concat([[code,name]]); J.set(LS_TYPES,JSON.stringify(customTypes)); fillTypeSelects(); $('aType').value=code; }
+    else { if(name) J.toast('The code needs to be exactly two letters'); $('aType').value=DEFAULT_TYPES[0][0]; }
+  }
+  descTouched=false; autoDesc(); updatePreview();
+};
+$('aDesc').oninput=()=>{descTouched=true};
+$('quick').onclick=e=>{const b=e.target.closest('[data-q]'); if(!b) return; const q=+b.dataset.q; $('aQty').value = q===0 ? '' : String((parseFloat($('aQty').value)||0)+q); $('aQty').focus();};
+$('addForm').onsubmit=e=>{e.preventDefault(); submitAdd(false);};
+$('btnNext').onclick=()=>submitAdd(true);
+
+$('tbl').addEventListener('click',e=>{
+  const s=e.target.closest('[data-sort]'); if(s){ const k=s.dataset.sort; P.sort = P.sort.k===k ? {k,dir:-P.sort.dir} : {k,dir:k==='entered_on'||k==='quantity'?-1:1}; render(); return; }
+  const ed=e.target.closest('[data-edit]'); if(ed){ openEdit(ed.dataset.edit); }
+});
+$('tbl').addEventListener('change',async e=>{
+  const q=e.target.closest('[data-qty]'); if(!q) return;
+  const v=parseFloat(q.value); if(isNaN(v)||v<0){ render(); return; }
+  if(await updateRow(q.dataset.qty,{quantity:v})){ J.toast('Quantity updated'); render(); }
+});
+$('tbl').addEventListener('keydown',e=>{ if(e.target.matches('[data-qty]') && e.key==='Enter'){ e.preventDefault(); e.target.blur(); } });
+
+$('fSearch').oninput=e=>{P.q=e.target.value.trim(); render();};
+$('filters').addEventListener('click',e=>{const c=e.target.closest('[data-src]'); if(!c) return; const s=c.dataset.src; P.src.has(s)?P.src.delete(s):P.src.add(s); c.classList.toggle('on',P.src.has(s)); render();});
+$('fType').onchange=e=>{P.type=e.target.value; e.target.classList.toggle('on',!!P.type); render();};
+
+$('eClose').onclick=closeEdit;
+$('editModal').addEventListener('click',e=>{ if(e.target.id==='editModal') closeEdit(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && P.editing) closeEdit(); });
+$('editForm').onsubmit=async e=>{
+  e.preventDefault(); const id=P.editing; if(!id) return;
+  const patch={entered_on:$('eDate').value, source:$('eSource').value, fabric_type:$('eType').value, description:$('eDesc').value.trim(), colour:$('eColour').value.trim(), measure:$('eMeasure').value, quantity:parseFloat($('eQty').value)||0, can_make:$('eMake').value.trim()||null};
+  if(await updateRow(id,patch)){ closeEdit(); fillTypeSelects(); render(); J.toast('Saved'); }
+};
+$('eDel').onclick=async()=>{
+  const b=$('eDel');
+  if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Tap again to delete'; return; }
+  const id=P.editing; closeEdit(); await deleteRow(id); render(); updatePreview(); J.toast('Purchase deleted');
+};
+
+$('actRefresh').onclick=async()=>{await load(); fillTypeSelects(); render(); updatePreview(); J.toast('Refreshed');};
+$('actCsv').onclick=()=>J.csv('jawda-fabric-purchases.csv',
+  ['Date entered','ID','Source','Fabric type','Product description','Colour','Measure','Quantity','What we can make'],
+  filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.colour,r.measure,r.quantity,r.can_make||'']));
+
+J.boot(async()=>{ await load(); fillTypeSelects(); if(!$('aType').value) $('aType').value='ct'; autoDesc(); render(); updatePreview(); });
+</script>
+</body>
+</html>

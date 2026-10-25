@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#401D24">
+<meta name="description" content="Jawda production — fabric, production runs and forecasting in one place.">
+<title>Jawda Production</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hero{background:var(--crater);color:var(--pearl);border-radius:16px;padding:clamp(22px,4vw,40px);margin:0 0 22px;position:relative;overflow:hidden}
+.hero h1{font-family:var(--serif);font-style:italic;font-weight:500;font-size:clamp(28px,4vw,40px);letter-spacing:-.02em;margin:0 0 6px}
+.hero p{color:var(--eagle);margin:0;max-width:560px}
+.hero .mark{position:absolute;right:clamp(16px,4vw,40px);top:50%;transform:translateY(-50%);height:68px;opacity:.16}
+.sect{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:24px 0 10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.tile{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s;min-height:150px}
+a.tile:hover{border-color:var(--ash);transform:translateY(-1px)}
+.tile .top{display:flex;align-items:center;gap:10px}
+.tile .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--pearl);color:var(--crater);font-size:18px;flex:none}
+.tile h3{margin:0;font-size:17px;font-weight:600;color:var(--crater)}
+.tile p{margin:0;color:var(--muted);font-size:14px}
+.tile .go{margin-top:auto;font-size:13px;font-weight:600;color:var(--umber)}
+.tile .tag{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#E7EFE4;color:#4E7247}
+.tile.soon{opacity:.72;border-style:dashed;box-shadow:none}
+.tile.soon .tag{background:var(--pearl);color:var(--muted)}
+.tile.soon .ic{background:transparent;border:1px dashed var(--eagle);color:var(--eagle)}
+</style>
+</head>
+<body>
+<section id="app">
+  <header>
+    <a class="brand" href="./"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" aria-label="Production pages">
+      <a href="./" class="on" aria-current="page">Home</a>
+      <a href="../fabric-matrix/">Fabric Matrix</a>
+      <a href="../fabric-purchases/">Fabric Purchases</a>
+    </nav>
+    <div class="grow"></div>
+    <a class="hbtn ghost" href="../">Board</a>
+  </header>
+  <main>
+    <div class="hero">
+      <h1>Production</h1>
+      <p>Fabric, production runs and forecasting for Jawda, in one place. Pick a tool below.</p>
+      <img class="mark" src="../logo-pearl.png" alt="">
+    </div>
+
+    <div class="sect">Fabric</div>
+    <div class="tiles">
+      <a class="tile" href="../fabric-purchases/">
+        <div class="top"><span class="ic">＋</span><h3>Fabric Purchases</h3><span class="tag">Live</span></div>
+        <p>Log every fabric we buy – from Nice, Sadia or the market – with its ID, colour and quantity.</p>
+        <span class="go">Open →</span>
+      </a>
+      <a class="tile" href="../fabric-matrix/">
+        <div class="top"><span class="ic">▦</span><h3>Fabric Matrix</h3><span class="tag">Live</span></div>
+        <p>Every design against the mill fabrics: what can be made, what should be made, and what's been sampled.</p>
+        <span class="go">Open →</span>
+      </a>
+      <div class="tile soon">
+        <div class="top"><span class="ic">▤</span><h3>Fabric Inventory</h3><span class="tag">Next</span></div>
+        <p>What's left of each fabric after every run, built from Fabric Purchases.</p>
+      </div>
+    </div>
+
+    <div class="sect">Production</div>
+    <div class="tiles">
+      <div class="tile soon">
+        <div class="top"><span class="ic">✂</span><h3>Production Runs</h3><span class="tag">Planned</span></div>
+        <p>Each run's designs, colours and sizes – replacing the tabs in the Bangladesh tracker.</p>
+      </div>
+      <div class="tile soon">
+        <div class="top"><span class="ic">↗</span><h3>Production Forecast</h3><span class="tag">Planned</span></div>
+        <p>Revenue targets to pieces to fabric – replacing the Production Forecasting sheet.</p>
+      </div>
+      <a class="tile" href="../">
+        <div class="top"><span class="ic">✓</span><h3>Jawda Board</h3></div>
+        <p>Company projects and tasks.</p>
+        <span class="go">Open →</span>
+      </a>
+    </div>
+  </main>
+</section>
+</body>
+</html>

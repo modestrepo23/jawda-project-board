@@ -39,7 +39,11 @@ button{cursor:pointer;border:0;background:none}
 /* header */
 #app{min-height:100%;display:flex;flex-direction:column}
 header{position:sticky;top:0;z-index:20;background:var(--crater);color:var(--pearl);padding:0 clamp(12px,3vw,32px);display:flex;align-items:center;gap:14px;height:60px}
-header .brand{display:flex;align-items:center;gap:10px}
+header .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.pnav{display:flex;background:rgba(229,221,208,.1);border-radius:999px;padding:3px;margin-left:8px;overflow-x:auto;scrollbar-width:none}
+.pnav a{padding:6px 14px;border-radius:999px;color:var(--eagle);font-weight:500;font-size:14px;text-decoration:none;white-space:nowrap}
+.pnav a:hover{color:var(--pearl)}
+.pnav a.on{background:var(--pearl);color:var(--crater)}
 header .brand .logo{height:26px;width:auto;display:block}
 header .brand span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--eagle)}
 header .grow{flex:1}
@@ -141,9 +145,13 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
 #toast.on{opacity:1;transform:translateX(-50%)}
 
 @media (max-width:860px){
-  header{height:54px;padding:0 12px;gap:8px}
+  header{height:auto;min-height:54px;padding:8px 12px;gap:8px;flex-wrap:wrap}
+  header .brand span,header .grow{display:none}
+  .pnav{order:3;flex:1 1 100%;margin:0}
+  .pnav a{flex:1;text-align:center;padding:6px 10px;font-size:13px}
+  .menu{margin-left:auto}
   header .brand .logo{height:22px}
-  .row.head{top:54px}
+  .row.head{position:static}
   .save-state{display:none}
   :root{--namew:minmax(110px,1.1fr)}
   .row.head>div{padding:10px 6px}
@@ -177,16 +185,21 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
 
 <section id="app" class="hidden">
   <header>
-    <div class="brand"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Fabric Matrix</span></div>
+    <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Production</span></a>
+    <nav class="pnav" aria-label="Production pages">
+      <a href="../production/">Home</a>
+      <a href="./" class="on" aria-current="page">Fabric Matrix</a>
+      <a href="../fabric-purchases/">Fabric Purchases</a>
+    </nav>
     <div class="grow"></div>
     <span class="save-state" id="saveState"></span>
-    <a class="hbtn ghost" href="../">Board</a>
     <div class="menu" id="dataMenu">
       <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
       <div class="dd">
         <button id="actRefresh">Refresh</button>
         <button id="actCsv">Export matrix to CSV</button>
         <hr>
+        <a href="../">Jawda Board</a>
         <button id="actSignout">Sign out</button>
       </div>
     </div>
