@@ -83,6 +83,15 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
 .row.head .fname{font-weight:600;font-size:14px;line-height:1.25}
 .row.head .fsub{font-size:11px;color:var(--eagle);line-height:1.3}
 .row.head .ftally{font-size:11px;color:var(--pearl);opacity:.85;margin-top:4px;font-variant-numeric:tabular-nums}
+.row.head .fh{cursor:pointer;border-radius:8px;transition:background .12s}
+.row.head .fh:hover{background:rgba(229,221,208,.08)}
+.row.head .fh .fbtn{margin-top:6px;align-self:flex-start;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid rgba(229,221,208,.35);color:var(--pearl)}
+.row.head .fh.on{background:var(--pearl);color:var(--crater)}
+.row.head .fh.on .fsub,.row.head .fh.on .ftally{color:var(--suede)}
+.row.head .fh.on .fbtn{background:var(--crater);color:var(--pearl);border-color:var(--crater)}
+.cell.focus{background:#FBF6EE}
+#filters select{max-width:230px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;outline:0;font-size:14px}
+#filters select.on{background:var(--crater);border-color:var(--crater);color:var(--pearl)}
 .row.head .corner{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--eagle);justify-content:flex-end}
 .ghead{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff8;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
 .ghead .caret{font-size:11px;color:var(--muted);width:10px;transition:.15s}
@@ -170,6 +179,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
 
   <div id="filters">
     <input type="search" id="fSearch" placeholder="Search designs…">
+    <select id="fFabric" aria-label="Show designs eligible for a fabric"><option value="">All fabrics</option></select>
     <button class="chip" id="fMarked">Marked only</button>
     <button class="chip" id="fShould">Should be made</button>
     <button class="chip" id="fExpand">Collapse all</button>
@@ -181,7 +191,7 @@ main{flex:1;padding:16px clamp(12px,3vw,32px) 80px;max-width:1280px;width:100%;m
     <div class="intro">
       <div class="left">
         <h1>Fabric matrix</h1>
-        <p class="lede">Every design we've made in Bangladesh, against the four mill fabrics. Click a square to mark what each fabric can be used for, and what we should make from it.</p>
+        <p class="lede">Every design we've made in Bangladesh, against the four mill fabrics. Click a square to mark what each fabric can be used for, and what we should make from it. Click a fabric's heading to see only the designs eligible for it.</p>
       </div>
       <div class="key" aria-label="Key">
         <h2>Key</h2>
@@ -304,7 +314,7 @@ const LS_KEY='jfm.cells';
 let sb=null, mode='local'; // 'remote' when Supabase table is reachable
 const S={
   cells:{}, // "designId|fabricId" -> 1|2
-  q:'', marked:false, should:false,
+  q:'', marked:false, should:false, fab:localGet('jfm.fab')||'',
   closed:new Set(safeJSON(localGet('jfm.closed'),[])),
 };
 function localGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -368,6 +378,7 @@ async function setCell(did,fid,state){
 // ---------- render ----------
 function matches(d){
   if(S.q){ const q=S.q.toLowerCase(); if(!(d.name+' '+d.alias).toLowerCase().includes(q)) return false; }
+  if(S.fab){ const v=S.cells[d.id+'|'+S.fab]||0; if(!v) return false; if(S.should && v!==2) return false; return true; }
   const st=FABRICS.map(f=>S.cells[d.id+'|'+f.id]||0);
   if(S.should && !st.includes(2)) return false;
   if(S.marked && !st.some(Boolean)) return false;
@@ -376,7 +387,7 @@ function matches(d){
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function render(){
   const tally=FABRICS.map(f=>{let c=0,s=0;COLLECTIONS.forEach(col=>col.designs.forEach(d=>{const v=S.cells[d.id+'|'+f.id];if(v===1)c++;if(v===2)s++;}));return {c,s}});
-  let html=`<div class="row head"><div class="corner">Design</div>${FABRICS.map((f,i)=>`<div><span class="fname">${esc(f.name)}</span><span class="fsub">${esc(f.sub)}</span><span class="ftally">${tally[i].s} should · ${tally[i].c} can</span></div>`).join('')}</div>`;
+  let html=`<div class="row head"><div class="corner">Design</div>${FABRICS.map((f,i)=>`<div class="fh${S.fab===f.id?' on':''}" data-fab="${f.id}" title="${S.fab===f.id?'Show all designs':'Show only designs that can or should be made in '+esc(f.name)}"><span class="fname">${esc(f.name)}</span><span class="fsub">${esc(f.sub)}</span><span class="ftally">${tally[i].s} should · ${tally[i].c} can</span><span class="fbtn">${S.fab===f.id?'✕ Showing only':'Filter'}</span></div>`).join('')}</div>`;
   let shown=0,total=0;
   COLLECTIONS.forEach(col=>{
     const ds=col.designs.filter(matches); total+=col.designs.length; shown+=ds.length;
@@ -389,20 +400,25 @@ function render(){
         const v=S.cells[d.id+'|'+f.id]||0, run=d.runs.includes(f.id);
         const lbl=v?LABEL[v]:'';
         const aria=`${d.name} in ${f.name}: ${v===2?'should be made':v===1?'can be made':'not marked'}${run?', already on a run':''}`;
-        html+=`<div class="cell st${v}">${run?'<span class="run" title="Already on a run in this fabric"></span>':''}<button data-d="${d.id}" data-f="${f.id}" aria-label="${esc(aria)}" title="${esc(aria)}">${lbl}</button></div>`;
+        html+=`<div class="cell st${v}${S.fab===f.id?' focus':''}">${run?'<span class="run" title="Already on a run in this fabric"></span>':''}<button data-d="${d.id}" data-f="${f.id}" aria-label="${esc(aria)}" title="${esc(aria)}">${lbl}</button></div>`;
       });
       html+='</div>';
     });
     html+='</div></div>';
   });
-  if(!shown) html+='<div class="empty">No designs match.</div>';
+  if(!shown) html+= S.fab ? `<div class="empty">No designs are marked for ${esc(FABRICS.find(f=>f.id===S.fab).name)} yet. Click squares in that column to mark them.</div>` : '<div class="empty">No designs match.</div>';
+  const sel=$('fFabric'); sel.value=S.fab; sel.classList.toggle('on',!!S.fab);
   $('mx').innerHTML=html;
-  $('fCount').textContent=`${shown} of ${total} designs`;
+  $('fCount').textContent = S.fab ? `${shown} design${shown===1?'':'s'} eligible for ${FABRICS.find(f=>f.id===S.fab).name}` : `${shown} of ${total} designs`;
   $('fExpand').textContent = S.closed.size ? 'Expand all' : 'Collapse all';
 }
 
 // ---------- events ----------
+function setFab(id){ S.fab=(S.fab===id?'':id); localSet('jfm.fab',S.fab); render(); }
+FABRICS.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent='Only '+f.name;$('fFabric').appendChild(o);});
+$('fFabric').onchange=e=>{S.fab=e.target.value;localSet('jfm.fab',S.fab);render();};
 $('mx').addEventListener('click',e=>{
+  const fh=e.target.closest('[data-fab]'); if(fh){ setFab(fh.dataset.fab); return; }
   const b=e.target.closest('button[data-d]');
   if(b){ const k=b.dataset.d+'|'+b.dataset.f; const next=((S.cells[k]||0)+1)%3; setCell(b.dataset.d,b.dataset.f,next); return; }
   const g=e.target.closest('[data-g]');
