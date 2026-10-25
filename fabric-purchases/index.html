@@ -23,6 +23,9 @@
 .addcard h2 .idprev b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid var(--line);padding:2px 8px;border-radius:6px;color:var(--crater)}
 .fgrid{display:grid;grid-template-columns:140px 1fr 1.2fr 1.3fr 1fr;gap:12px}
 .fgrid2{display:grid;grid-template-columns:1.1fr 1.6fr 2fr;gap:12px;margin-top:12px}
+.fgrid3{display:grid;grid-template-columns:1.5fr 1fr 1.4fr 1fr;gap:12px;margin-top:12px}
+.pricebox{display:flex;gap:6px}
+.pricebox input{text-align:right;font-variant-numeric:tabular-nums}
 .field label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
 .field input,.field select{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;outline:0}
 .field input:focus,.field select:focus{border-color:var(--ash)}
@@ -43,7 +46,7 @@
 .btn:disabled{opacity:.5;cursor:default}
 
 .tbl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.tr{display:grid;grid-template-columns:96px 88px 80px minmax(140px,1.4fr) minmax(100px,1fr) 70px 130px minmax(140px,1.6fr) 40px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line)}
+.tr{display:grid;grid-template-columns:92px 74px 72px minmax(130px,1.3fr) minmax(110px,1fr) minmax(90px,.9fr) 122px 128px minmax(120px,1.3fr) 64px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line)}
 .tr:last-child{border-bottom:0}
 .tr.head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:#fff8}
 .tr.head button{font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;text-align:left;padding:0}
@@ -62,6 +65,11 @@
 .qcell .u{font-size:12px;color:var(--muted);width:34px}
 .mk{font-size:13px;color:var(--suede);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .mk.none{color:var(--eagle)}
+.price{font-variant-numeric:tabular-nums;font-size:13px;line-height:1.3}
+.price b{font-weight:600}
+.price .sub{color:var(--muted);font-size:12px}
+.price.none{color:var(--eagle)}
+.rowbtns{display:flex;gap:2px;justify-content:flex-end}
 .edit{color:var(--muted);font-size:18px;line-height:1;padding:4px 6px;border-radius:6px}
 .edit:hover{background:var(--pearl);color:var(--ink)}
 .tfoot{display:flex;gap:16px;justify-content:flex-end;padding:10px 14px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);background:#fff8;font-variant-numeric:tabular-nums}
@@ -82,17 +90,20 @@
 @media (max-width:980px){
   .fgrid{grid-template-columns:1fr 1fr}
   .fgrid2{grid-template-columns:1fr}
+  .fgrid3{grid-template-columns:1fr 1fr}
 }
-@media (max-width:560px){ .fgrid{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
+@media (max-width:560px){ .fgrid,.fgrid3{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
 @media (max-width:760px){
   .tr.head{display:none}
-  .tr{grid-template-columns:1fr auto;grid-template-areas:"code qty" "desc qty" "meta meta" "mk mk";gap:4px 10px;padding:12px}
+  .tr{grid-template-columns:1fr auto;grid-template-areas:"code qty" "desc qty" "meta meta" "price price" "mk mk";gap:4px 10px;padding:12px}
   .tr>.c-date{display:none}
   .tr>.c-code{grid-area:code}
-  .tr>.c-src,.tr>.c-col,.tr>.c-meas{display:none}
+  .tr>.c-src,.tr>.c-col,.tr>.c-comp{display:none}
+  .tr>.c-price{grid-area:price;text-align:left}
   .tr>.c-desc{grid-area:desc}
   .tr>.c-qty{grid-area:qty}
-  .tr>.c-meta{grid-area:meta;display:block!important}
+  .tr .c-meta{display:block!important;margin-top:2px}
+  .tr>.c-qty{margin-top:26px}
   .tr>.c-mk{grid-area:mk}
   .tr>.c-edit{position:absolute;right:8px;top:8px}
   .tr{position:relative}
@@ -164,12 +175,18 @@
         </div>
         <div class="field"><label for="aMake">What we can make from it</label><input id="aMake" placeholder="e.g. Mock Neck Jumper Abaya, Welt Pocket Dress"></div>
       </div>
+      <div class="fgrid3">
+        <div class="field"><label for="aComp">Composition</label><input id="aComp" list="compList" placeholder="e.g. 62% Tencel, 38% Cotton"></div>
+        <div class="field"><label>Currency</label><div class="seg" id="aCur"><button type="button" data-v="USD">USD</button><button type="button" data-v="BDT">BDT</button></div></div>
+        <div class="field"><label for="aPrice">Price paid</label><div class="pricebox"><input type="number" id="aPrice" inputmode="decimal" min="0" step="any" placeholder="0.00"></div></div>
+        <div class="field"><label for="aBasis">Price is</label><select id="aBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
+      </div>
       <div class="actions">
         <span class="hint">Press Enter to add. "Add & next colour" keeps everything except the colour and quantity.</span>
         <button type="button" class="btn line" id="btnNext">Add &amp; next colour</button>
         <button type="submit" class="btn primary" id="btnAdd">Add purchase</button>
       </div>
-      <datalist id="colourList"></datalist>
+      <datalist id="colourList"></datalist><datalist id="compList"></datalist>
     </form>
 
     <div class="filters" id="filters">
@@ -195,6 +212,10 @@
       <div class="field"><label for="eColour">Colour</label><input id="eColour" list="colourList" required></div>
       <div class="field"><label for="eMeasure">Measure</label><select id="eMeasure"><option value="yards">Yards</option><option value="kg">Kg</option></select></div>
       <div class="field"><label for="eQty">Quantity</label><input type="number" id="eQty" min="0" step="any" required></div>
+      <div class="field wide"><label for="eComp">Composition</label><input id="eComp" list="compList"></div>
+      <div class="field"><label for="eCur">Currency</label><select id="eCur"><option value="">—</option><option>USD</option><option>BDT</option></select></div>
+      <div class="field"><label for="ePrice">Price paid</label><input type="number" id="ePrice" min="0" step="any"></div>
+      <div class="field"><label for="eBasis">Price is</label><select id="eBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
       <div class="field wide"><label for="eMake">What we can make from it</label><input id="eMake"></div>
       <p class="muted wide" style="margin:0">The ID stays the same if you change the source or fabric type.</p>
     </div>
@@ -228,6 +249,16 @@ function fillTypeSelects(){
   $('eType').innerHTML=opts;
   $('fType').innerHTML='<option value="">All fabric types</option>'+types().filter(([c])=>P.rows.some(r=>r.fabric_type===c)).map(([c,n])=>`<option value="${c}">${J.esc(n)} (${c})</option>`).join('');
   if(keepA && keepA!=='__new') $('aType').value=keepA; if(keepE) $('eType').value=keepE; $('fType').value=keepF;
+}
+
+// ---------- price ----------
+function totalPaid(r){ if(r.price_amount==null||r.price_amount==='') return null; const a=+r.price_amount; return r.price_basis==='total'?a:a*(+r.quantity||0); }
+function unitPrice(r){ if(r.price_amount==null||r.price_amount==='') return null; const a=+r.price_amount; return r.price_basis==='total'?((+r.quantity)?a/(+r.quantity):null):a; }
+function money(cur,v){ if(v==null) return ''; const d=cur==='USD'?2:0; return (cur==='USD'?'$':'৳')+(+v).toLocaleString('en-GB',{minimumFractionDigits:d,maximumFractionDigits:2}); }
+function priceHtml(r){
+  if(r.price_amount==null||r.price_amount==='') return '<span class="price none">Not set</span>';
+  const u=unitPrice(r), t=totalPaid(r), per=r.measure==='yards'?'yd':'kg';
+  return `<div class="price"><b>${money(r.currency,t)}</b> <span class="sub">${r.currency||''}</span><div class="sub">${u!=null?money(r.currency,u)+' / '+per:''}</div></div>`;
 }
 
 // ---------- data ----------
@@ -278,7 +309,7 @@ async function deleteRow(id){
 }
 
 // ---------- add form ----------
-const A={source:'Nice', measure:'yards'};
+const A={source:'Nice', measure:'yards', currency:'USD'};
 function segInit(id,key){ const el=$(id); el.onclick=e=>{const b=e.target.closest('button[data-v]'); if(!b) return; A[key]=b.dataset.v; segPaint(id,A[key]); updatePreview(); J.set(LS_LAST,JSON.stringify(A));}; }
 function segPaint(id,v){ $(id).querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }
 function updatePreview(){ const t=$('aType').value; $('idPrev').textContent = t && t!=='__new' ? nextCode(A.source,t) : '—'; }
@@ -291,14 +322,15 @@ async function submitAdd(keep){
   const qty=parseFloat($('aQty').value);
   if(!$('aColour').value.trim()){ $('aColour').focus(); return; }
   if(isNaN(qty)||qty<0){ $('aQty').focus(); return; }
-  const obj={entered_on:$('aDate').value||J.today(), source:A.source, fabric_type:t, description:$('aDesc').value.trim()||typeName(t)+' Fabric', colour:$('aColour').value.trim(), measure:A.measure, quantity:qty, can_make:$('aMake').value.trim()||null};
+  const obj={entered_on:$('aDate').value||J.today(), source:A.source, fabric_type:t, description:$('aDesc').value.trim()||typeName(t)+' Fabric', colour:$('aColour').value.trim(), measure:A.measure, quantity:qty, can_make:$('aMake').value.trim()||null,
+    composition:$('aComp').value.trim()||null, currency:$('aPrice').value!==''?A.currency:null, price_amount:$('aPrice').value!==''?parseFloat($('aPrice').value):null, price_basis:$('aBasis').value};
   $('btnAdd').disabled=$('btnNext').disabled=true;
   const row=await insertRow(obj);
   $('btnAdd').disabled=$('btnNext').disabled=false;
   if(!row) return;
   J.toast(`Added ${row.fabric_code} – ${row.colour}, ${J.num(row.quantity)} ${row.measure}`);
   $('aColour').value=''; $('aQty').value='';
-  if(!keep){ $('aMake').value=''; }
+  if(!keep){ $('aMake').value=''; $('aComp').value=''; $('aPrice').value=''; }
   fillTypeSelects(); render(); updatePreview(); $('aColour').focus();
 }
 
@@ -308,7 +340,7 @@ function filtered(){
   return P.rows.filter(r=>{
     if(P.src.size && !P.src.has(r.source)) return false;
     if(P.type && r.fabric_type!==P.type) return false;
-    if(q && !`${r.fabric_code} ${r.description} ${r.colour} ${r.source} ${typeName(r.fabric_type)} ${r.can_make||''}`.toLowerCase().includes(q)) return false;
+    if(q && !`${r.fabric_code} ${r.description} ${r.colour} ${r.source} ${typeName(r.fabric_type)} ${r.can_make||''} ${r.composition||''}`.toLowerCase().includes(q)) return false;
     return true;
   }).sort((a,b)=>{const k=P.sort.k; let x=a[k],y=b[k]; if(k==='quantity'){x=+x;y=+y;} else {x=String(x||'');y=String(y||'');} if(x<y) return -1*P.sort.dir; if(x>y) return P.sort.dir; return String(b.created_at||'').localeCompare(String(a.created_at||''));});
 }
@@ -321,34 +353,49 @@ function render(){
     [J.num(sum(P.rows,'kg')),'Kg bought'],
     [new Set(P.rows.map(r=>r.fabric_type)).size,'Fabric types'],
     [new Set(P.rows.map(r=>r.fabric_type+'|'+r.colour.toLowerCase())).size,'Fabric colours'],
+    [money('USD',P.rows.filter(r=>r.currency==='USD').reduce((s,r)=>s+(totalPaid(r)||0),0)),'Spent (USD)'],
+    [money('BDT',P.rows.filter(r=>r.currency==='BDT').reduce((s,r)=>s+(totalPaid(r)||0),0)),'Spent (BDT)'],
   ].map(([v,l])=>`<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
   const sb=(k,l)=>`<button type="button" data-sort="${k}" class="${P.sort.k===k?'on':''}">${l}${P.sort.k===k?(P.sort.dir<0?' ↓':' ↑'):''}</button>`;
-  let h=`<div class="tr head"><div>${sb('entered_on','Date')}</div><div>${sb('fabric_code','ID')}</div><div>${sb('source','Source')}</div><div>${sb('description','Product description')}</div><div>${sb('colour','Colour')}</div><div>Measure</div><div style="text-align:right">${sb('quantity','Quantity')}</div><div>What we can make</div><div></div></div>`;
+  let h=`<div class="tr head"><div>${sb('entered_on','Date')}</div><div>${sb('fabric_code','ID')}</div><div>${sb('source','Source')}</div><div>${sb('description','Product description')}</div><div>Composition</div><div>${sb('colour','Colour')}</div><div style="text-align:right">${sb('quantity','Quantity')}</div><div>Price paid</div><div>What we can make</div><div></div></div>`;
   if(!rows.length) h+=`<div class="empty">${P.rows.length?'No purchases match these filters.':'No purchases yet. Add the first one above.'}</div>`;
   rows.forEach(r=>{
     h+=`<div class="tr" data-id="${r.id}">
       <div class="c-date date">${J.fmtDate(r.entered_on)}</div>
       <div class="c-code"><span class="code">${J.esc(r.fabric_code||'…')}</span></div>
       <div class="c-src"><span class="src ${r.source}">${r.source}</span></div>
-      <div class="c-desc">${J.esc(r.description)}<div class="muted c-meta"><span class="src ${r.source}">${r.source}</span> · ${J.esc(r.colour)} · ${J.fmtDate(r.entered_on)}</div></div>
+      <div class="c-desc">${J.esc(r.description)}<div class="muted c-meta"><span class="src ${r.source}">${r.source}</span> · ${J.esc(r.colour)}${r.composition?' · '+J.esc(r.composition):''} · ${J.fmtDate(r.entered_on)}</div></div>
+      <div class="c-comp muted">${J.esc(r.composition||'—')}</div>
       <div class="c-col">${J.esc(r.colour)}</div>
-      <div class="c-meas muted">${r.measure}</div>
       <div class="c-qty qcell"><input type="number" min="0" step="any" value="${+r.quantity}" data-qty="${r.id}" aria-label="Quantity for ${J.esc(r.fabric_code)}"><span class="u">${r.measure==='yards'?'yd':'kg'}</span></div>
+      <div class="c-price">${priceHtml(r)}</div>
       <div class="c-mk mk${r.can_make?'':' none'}" title="${J.esc(r.can_make||'')}">${J.esc(r.can_make||'Not set')}</div>
-      <div class="c-edit"><button type="button" class="edit" data-edit="${r.id}" aria-label="Edit ${J.esc(r.fabric_code)}">✎</button></div>
+      <div class="c-edit rowbtns"><button type="button" class="edit" data-dup="${r.id}" title="Duplicate" aria-label="Duplicate ${J.esc(r.fabric_code)}">⧉</button><button type="button" class="edit" data-edit="${r.id}" title="Edit" aria-label="Edit ${J.esc(r.fabric_code)}">✎</button></div>
     </div>`;
   });
-  if(rows.length) h+=`<div class="tfoot"><span>Showing <b>${rows.length}</b></span><span>Yards <b>${J.num(sum(rows,'yards'))}</b></span><span>Kg <b>${J.num(sum(rows,'kg'))}</b></span></div>`;
+  if(rows.length) h+=`<div class="tfoot"><span>Showing <b>${rows.length}</b></span><span>Yards <b>${J.num(sum(rows,'yards'))}</b></span><span>Kg <b>${J.num(sum(rows,'kg'))}</b></span><span>USD <b>${money('USD',rows.filter(r=>r.currency==='USD').reduce((s,r)=>s+(totalPaid(r)||0),0))}</b></span><span>BDT <b>${money('BDT',rows.filter(r=>r.currency==='BDT').reduce((s,r)=>s+(totalPaid(r)||0),0))}</b></span></div>`;
   $('tbl').innerHTML=h;
   $('fCount').textContent=`${rows.length} of ${P.rows.length}`;
+  $('compList').innerHTML=[...new Set(P.rows.map(r=>r.composition).filter(Boolean))].sort().map(c=>`<option value="${J.esc(c)}">`).join('');
   $('colourList').innerHTML=[...new Set(P.rows.map(r=>r.colour))].sort().map(c=>`<option value="${J.esc(c)}">`).join('');
+}
+
+// ---------- duplicate ----------
+async function duplicate(id){
+  const r=P.rows.find(x=>x.id===id); if(!r) return;
+  const copy={entered_on:J.today(), source:r.source, fabric_type:r.fabric_type, description:r.description, colour:r.colour, measure:r.measure, quantity:+r.quantity,
+    can_make:r.can_make||null, composition:r.composition||null, currency:r.currency||null, price_amount:r.price_amount??null, price_basis:r.price_basis||'unit'};
+  const row=await insertRow(copy); if(!row) return;
+  fillTypeSelects(); render(); updatePreview();
+  J.toast(`Duplicated ${r.fabric_code} as ${row.fabric_code} – change the colour or quantity`);
+  openEdit(row.id); $('eColour').focus(); $('eColour').select();
 }
 
 // ---------- edit modal ----------
 function openEdit(id){
   const r=P.rows.find(x=>x.id===id); if(!r) return; P.editing=id;
   $('eCode').textContent=r.fabric_code||''; $('eDate').value=r.entered_on; $('eSource').value=r.source; $('eType').value=r.fabric_type;
-  $('eDesc').value=r.description; $('eColour').value=r.colour; $('eMeasure').value=r.measure; $('eQty').value=+r.quantity; $('eMake').value=r.can_make||'';
+  $('eDesc').value=r.description; $('eColour').value=r.colour; $('eMeasure').value=r.measure; $('eQty').value=+r.quantity; $('eMake').value=r.can_make||''; $('eComp').value=r.composition||''; $('eCur').value=r.currency||''; $('ePrice').value=r.price_amount??''; $('eBasis').value=r.price_basis||'unit';
   $('eDel').classList.remove('arm'); $('eDel').textContent='Delete purchase';
   $('editModal').classList.add('on'); $('eQty').focus();
 }
@@ -357,7 +404,8 @@ function closeEdit(){ $('editModal').classList.remove('on'); P.editing=null; }
 // ---------- events ----------
 $('aDate').value=J.today();
 const last=J.safe(J.get(LS_LAST),null); if(last){ A.source=last.source||A.source; A.measure=last.measure||A.measure; }
-segInit('aSource','source'); segInit('aMeasure','measure'); segPaint('aSource',A.source); segPaint('aMeasure',A.measure);
+if(last&&last.currency) A.currency=last.currency;
+segInit('aSource','source'); segInit('aMeasure','measure'); segInit('aCur','currency'); segPaint('aSource',A.source); segPaint('aMeasure',A.measure); segPaint('aCur',A.currency);
 $('aType').onchange=()=>{
   if($('aType').value==='__new'){
     const name=(prompt('Name of the new fabric type (e.g. Wool Blend)')||'').trim();
@@ -374,6 +422,7 @@ $('btnNext').onclick=()=>submitAdd(true);
 
 $('tbl').addEventListener('click',e=>{
   const s=e.target.closest('[data-sort]'); if(s){ const k=s.dataset.sort; P.sort = P.sort.k===k ? {k,dir:-P.sort.dir} : {k,dir:k==='entered_on'||k==='quantity'?-1:1}; render(); return; }
+  const dp=e.target.closest('[data-dup]'); if(dp){ duplicate(dp.dataset.dup); return; }
   const ed=e.target.closest('[data-edit]'); if(ed){ openEdit(ed.dataset.edit); }
 });
 $('tbl').addEventListener('change',async e=>{
@@ -392,7 +441,8 @@ $('editModal').addEventListener('click',e=>{ if(e.target.id==='editModal') close
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && P.editing) closeEdit(); });
 $('editForm').onsubmit=async e=>{
   e.preventDefault(); const id=P.editing; if(!id) return;
-  const patch={entered_on:$('eDate').value, source:$('eSource').value, fabric_type:$('eType').value, description:$('eDesc').value.trim(), colour:$('eColour').value.trim(), measure:$('eMeasure').value, quantity:parseFloat($('eQty').value)||0, can_make:$('eMake').value.trim()||null};
+  const patch={entered_on:$('eDate').value, source:$('eSource').value, fabric_type:$('eType').value, description:$('eDesc').value.trim(), colour:$('eColour').value.trim(), measure:$('eMeasure').value, quantity:parseFloat($('eQty').value)||0, can_make:$('eMake').value.trim()||null,
+    composition:$('eComp').value.trim()||null, currency:$('ePrice').value!==''?($('eCur').value||'USD'):null, price_amount:$('ePrice').value!==''?parseFloat($('ePrice').value):null, price_basis:$('eBasis').value};
   if(await updateRow(id,patch)){ closeEdit(); fillTypeSelects(); render(); J.toast('Saved'); }
 };
 $('eDel').onclick=async()=>{
@@ -403,8 +453,8 @@ $('eDel').onclick=async()=>{
 
 $('actRefresh').onclick=async()=>{await load(); fillTypeSelects(); render(); updatePreview(); J.toast('Refreshed');};
 $('actCsv').onclick=()=>J.csv('jawda-fabric-purchases.csv',
-  ['Date entered','ID','Source','Fabric type','Product description','Colour','Measure','Quantity','What we can make'],
-  filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.colour,r.measure,r.quantity,r.can_make||'']));
+  ['Date entered','ID','Source','Fabric type','Product description','Composition','Colour','Measure','Quantity','Currency','Price paid','Price is','Unit price','Total paid','What we can make'],
+  filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.composition||'',r.colour,r.measure,r.quantity,r.currency||'',r.price_amount??'',r.price_amount!=null?(r.price_basis==='total'?'Total':'Per '+(r.measure==='yards'?'yard':'kg')):'',unitPrice(r)??'',totalPaid(r)??'',r.can_make||'']));
 
 J.boot(async()=>{ await load(); fillTypeSelects(); if(!$('aType').value) $('aType').value='ct'; autoDesc(); render(); updatePreview(); });
 </script>

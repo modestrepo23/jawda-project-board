@@ -57,3 +57,9 @@ create policy "team can read fabric purchases"
 create policy "team can write fabric purchases"
   on public.fabric_purchases for all
   to authenticated using (true) with check (true);
+
+-- Added 25 Oct 2026: composition and price paid (safe to re-run)
+alter table public.fabric_purchases add column if not exists composition  text;
+alter table public.fabric_purchases add column if not exists currency     text check (currency in ('BDT','USD'));
+alter table public.fabric_purchases add column if not exists price_amount numeric(12,2) check (price_amount >= 0);
+alter table public.fabric_purchases add column if not exists price_basis  text not null default 'unit' check (price_basis in ('unit','total'));
