@@ -107,8 +107,9 @@ function stockFor(x){
   if(!STOCK||!x.stock_name) return [];
   return STOCK.fabrics.filter(f=>f.name===x.stock_name).map(f=>{
     const used=STOCK.lines.filter(l=>l.fabric_id===f.id&&STOCK.runIds.has(l.run_id)).reduce((a,l)=>a+Object.values(l.sizes||{}).reduce((p,q)=>p+(+q||0),0)*(+l.consumption||0),0);
-    const bought=STOCK.purchases.filter(p=>p.stock_fabric_id===f.id&&p.measure==='yards'&&(!STOCK.since||p.entered_on>=STOCK.since)).reduce((a,p)=>a+(+p.quantity||0),0);
-    return {colour:f.colour,held:(+f.in_stock||0)+bought,left:(+f.in_stock||0)+bought-used,onOrder:(+f.on_order||0)+(+f.planned_order||0)};
+    const mine=STOCK.purchases.filter(p=>p.stock_fabric_id===f.id&&p.measure==='yards'&&(!STOCK.since||p.entered_on>=STOCK.since));
+    const bought=mine.filter(p=>p.received!==false).reduce((a,p)=>a+(+p.quantity||0),0), coming=mine.filter(p=>p.received===false).reduce((a,p)=>a+(+p.quantity||0),0);
+    return {colour:f.colour,held:(+f.in_stock||0)+bought,left:(+f.in_stock||0)+bought-used,onOrder:(+f.on_order||0)+coming+(+f.planned_order||0)};
   });
 }
 async function loadStock(){

@@ -115,7 +115,7 @@ main{padding-bottom:150px}
     </div>
 
     <div class="card">
-      <h2>Fabric this run uses <span class="r muted">Left = counted stock + purchases − every run up to and including this one</span></h2>
+      <h2>Fabric this run uses <span class="r muted">Left = counted stock + deliveries in Dhaka in time − every run up to and including this one</span></h2>
       <div class="scroll"><table class="t" id="fabs"></table></div>
     </div>
   </main>
@@ -215,9 +215,9 @@ function renderCalc(){
     const o=stock.get(fid); if(!o) return `<tr><td><span class="pill warn">Fabric was deleted</span></td><td class="n">${f(y)}</td><td colspan="3"></td></tr>`;
     const left=PF.leftAfterRun(stock,fid,RUN.id), before=left+y;
     return `<tr><td>${J.esc(PF.fabricName(o.f))} <span class="pill">${J.esc(o.f.status)}</span></td><td class="n">${f(y)}</td><td class="n">${f(before)}</td><td class="n ${left<-0.5?'neg':''}">${f(left)}</td>
-      <td>${left<-0.5?(o.onOrder+o.planned+left>=-0.5?`<span class="pill info">Short – covered by ${o.onOrder?'order':'planned order'}</span>`:'<span class="pill warn">Short</span>'):'<span class="pill ok">Enough</span>'}</td></tr>`;
+      <td>${left<-0.5?(o.left+o.onOrder>=-0.5?'<span class="pill warn">Delivery lands too late</span>':o.leftAll>=-0.5?'<span class="pill info">Needs the planned order</span>':'<span class="pill warn">Short</span>'):'<span class="pill ok">Enough</span>'}</td></tr>`;
   }).join('');
-  $('fabs').innerHTML=`<thead><tr><th>Fabric</th><th class="n">Yards on this run</th><th class="n">Held before this run</th><th class="n">Left after</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</tbody>`;
+  $('fabs').innerHTML=`<thead><tr><th>Fabric</th><th class="n">Yards on this run</th><th class="n">In Dhaka before this run</th><th class="n">Left after</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</tbody>`;
   // chips pieces
   const chip=document.querySelector(`.rc[data-run="${RUN.id}"] .p`); if(chip) chip.textContent=f(pcs)+' pcs';
 }

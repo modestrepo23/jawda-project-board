@@ -148,43 +148,58 @@ window.PF = (() => {
     });
   };
 
-  // Fabric: counted stock + purchases since the count − yards on runs since the count
+  // Fabric: counted stock + purchases that have arrived − yards on runs since the count.
+  // Purchases not yet arrived (and mill orders) count from their expected delivery date:
+  // a run can only use fabric that is in Dhaka by run date − dhaka_buffer_days.
   const yardsOfPurchase = p => p.measure === 'yards' ? (+p.quantity || 0) : 0;
+  PF.arrived = p => p.received !== false;
   PF.stock = () => {
     const s = PF.D.settings, since = s.fabric_count_date;
+    const buf = +s.dhaka_buffer_days || 0, lead = +s.lead_days || 0;
     const runs = PF.runsSorted().filter(r => !since || r.run_date >= since);
     const out = new Map();
-    for (const f of PF.D.fabrics) out.set(f.id, { f, counted: +f.in_stock || 0, bought: 0, purchases: [], used: 0, byRun: [], kg: 0 });
+    for (const f of PF.D.fabrics) out.set(f.id, { f, counted: +f.in_stock || 0, bought: 0, purchases: [], incoming: [], used: 0, byRun: [], kg: 0 });
     for (const p of PF.D.purchases) {
       const o = out.get(p.stock_fabric_id); if (!o) continue;
       if (since && p.entered_on < since) continue;
-      o.purchases.push(p); o.bought += yardsOfPurchase(p); if (p.measure === 'kg') o.kg += +p.quantity || 0;
+      o.purchases.push(p); if (p.measure === 'kg') o.kg += +p.quantity || 0;
+      if (PF.arrived(p)) o.bought += yardsOfPurchase(p);
+      else if (yardsOfPurchase(p)) o.incoming.push({ yards: yardsOfPurchase(p), eta: p.expected_on || null, label: p.fabric_code || 'Purchase', purchase: p });
     }
+    for (const o of out.values()) if (+o.f.on_order > 0) o.incoming.push({ yards: +o.f.on_order, eta: o.f.on_order_eta || null, label: 'Mill order' });
     for (const r of runs) {
       const per = new Map();
       for (const l of PF.runLines(r.id)) if (l.fabric_id && out.has(l.fabric_id)) per.set(l.fabric_id, (per.get(l.fabric_id) || 0) + PF.yards(l));
-      for (const [fid, y] of per) { const o = out.get(fid); o.used += y; o.byRun.push({ run: r, yards: y }); }
+      for (const [fid, y] of per) { const o = out.get(fid); o.used += y; o.byRun.push({ run: r, yards: y, dhakaBy: PF.addDays(r.run_date, -buf) }); }
     }
-    const buf = +s.dhaka_buffer_days || 0, lead = +s.lead_days || 0;
     for (const o of out.values()) {
-      const f = o.f; o.left = o.counted + o.bought - o.used;
-      o.onOrder = +f.on_order || 0; o.planned = +f.planned_order || 0;
-      o.leftAll = o.left + o.onOrder + o.planned;
-      // first run the stock we hold can't cover
-      let bal = o.counted + o.bought; o.shortRun = null;
-      for (const br of o.byRun) { bal -= br.yards; if (bal < -0.5) { o.shortRun = br.run; break; } }
+      const f = o.f;
+      o.incoming.sort((a, b) => (a.eta || '9999').localeCompare(b.eta || '9999'));
+      o.onOrder = o.incoming.reduce((a, x) => a + x.yards, 0); o.planned = +f.planned_order || 0;
+      o.nextEta = (o.incoming.find(x => x.eta) || {}).eta || null;
+      o.left = o.counted + o.bought - o.used;            // if nothing else arrives
+      o.leftAll = o.left + o.onOrder + o.planned;        // once every order and planned order is in
+      // walk the runs in date order, adding each delivery once it's in Dhaka in time for the run
+      let bal = o.counted + o.bought, k = 0, shortNoOrders = null; o.shortRun = null; let held = o.counted + o.bought;
+      for (const br of o.byRun) {
+        while (k < o.incoming.length && o.incoming[k].eta && o.incoming[k].eta <= br.dhakaBy) bal += o.incoming[k++].yards;
+        bal -= br.yards; br.after = bal; held -= br.yards;
+        if (bal < -0.5 && !o.shortRun) o.shortRun = br.run;
+        if (held < -0.5 && !shortNoOrders) shortNoOrders = br.run;
+      }
       o.needBy = f.required_by || (o.shortRun ? PF.addDays(o.shortRun.run_date, -buf) : null);
       o.orderBy = o.needBy && ['Nice', 'Sadia'].includes(f.source) ? PF.addDays(o.needBy, -lead) : null;
-      o.etaLate = !!(o.needBy && f.on_order_eta && o.onOrder > 0 && f.on_order_eta > o.needBy);
-      o.state = o.left >= -0.5 ? 'ok' : o.leftAll >= -0.5 ? (o.onOrder + o.left >= -0.5 ? 'ordered' : 'planned') : 'short';
+      // an order exists but lands after the run that needs it
+      o.etaLate = !!(o.shortRun && o.onOrder > 0 && o.left + o.onOrder >= -0.5);
+      o.state = !o.shortRun ? (shortNoOrders ? 'ordered' : 'ok')
+        : o.left + o.onOrder >= -0.5 ? 'ordered' : o.leftAll >= -0.5 ? 'planned' : 'short';
     }
     return out;
   };
   PF.leftAfterRun = (stockMap, fid, runId) => {
     const o = stockMap.get(fid); if (!o) return null;
-    let bal = o.counted + o.bought;
-    for (const br of o.byRun) { bal -= br.yards; if (br.run.id === runId) return bal; }
-    return bal;
+    const br = o.byRun.find(b => b.run.id === runId);
+    return br ? br.after : o.left;
   };
 
   // nav shared by the production pages

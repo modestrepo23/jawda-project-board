@@ -167,12 +167,12 @@ function render(){
   }</tbody>`;
 
   // fabric to watch
-  const watch=[...stock.values()].filter(o=>o.byRun.length&&(o.state!=='ok'||o.etaLate))
+  const watch=[...stock.values()].filter(o=>o.byRun.length&&(o.shortRun||o.state==='planned'||o.state==='short'))
     .sort((a,b)=>(a.orderBy||a.needBy||'9').localeCompare(b.orderBy||b.needBy||'9'));
   $('fabList').innerHTML=watch.length?watch.slice(0,10).map(o=>`<li><span class="nm"><b>${J.esc(o.f.name)}</b> – ${J.esc(o.f.colour)}</span>
      <span class="${o.left<0?'neg':''}" title="Stock we hold, minus every run">${f(o.left)} yd after runs</span>${o.onOrder||o.planned?`<span class="muted">→</span><span class="${o.leftAll<-0.5?'neg':''}" title="Including orders placed and planned">${f(o.leftAll)} with orders</span>`:''}
-     ${o.state==='ordered'?'<span class="pill info">Covered by order</span>':o.state==='planned'?'<span class="pill info">Covered by planned order</span>':'<span class="pill warn">Short</span>'}
-     ${o.etaLate?'<span class="pill warn">Order lands after it\'s needed</span>':''}
+     ${o.state==='ordered'?(o.shortRun?'<span class="pill warn">Delivery lands too late</span>':'<span class="pill info">Covered by delivery</span>'):o.state==='planned'?'<span class="pill info">Needs the planned order</span>':'<span class="pill warn">Short</span>'}
+     ${o.nextEta?`<span class="muted">next delivery ${PF.short(o.nextEta)}</span>`:''}
      <span class="muted">${o.needBy?'Needed in Dhaka by '+PF.short(o.needBy):''}${o.orderBy?' · order by '+PF.short(o.orderBy):''}</span></li>`).join('')
     +(watch.length>10?`<li class="muted">and ${watch.length-10} more on Fabric Stock</li>`:'')
     :'<li class="muted">Every fabric on a run is covered by the stock we hold.</li>';

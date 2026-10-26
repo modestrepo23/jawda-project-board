@@ -63,3 +63,7 @@ alter table public.fabric_purchases add column if not exists composition  text;
 alter table public.fabric_purchases add column if not exists currency     text check (currency in ('BDT','USD'));
 alter table public.fabric_purchases add column if not exists price_amount numeric(12,2) check (price_amount >= 0);
 alter table public.fabric_purchases add column if not exists price_basis  text not null default 'unit' check (price_basis in ('unit','total'));
+
+-- Added 26 Oct 2026: expected delivery for mill orders (safe to re-run)
+alter table public.fabric_purchases add column if not exists expected_on date;                    -- when it will be in Dhaka
+alter table public.fabric_purchases add column if not exists received boolean not null default true; -- false = on its way

@@ -102,7 +102,7 @@ tr.det td{background:#fff!important;padding:4px 22px 14px}
     <div class="field"><label for="mSource">Source</label><input id="mSource" list="srcList" placeholder="Nice, Sadia, Mollik, Market"></div>
     <div class="field"><label for="mStatus">Status</label><select id="mStatus"></select></div>
     <div class="field"><label for="mCount">Counted stock (yd)</label><input id="mCount" type="number" min="0" step="any"></div>
-    <div class="field"><label for="mOrder">On order (yd)</label><input id="mOrder" type="number" min="0" step="any"></div>
+    <div class="field"><label for="mOrder">Other order not in Purchases (yd)</label><input id="mOrder" type="number" min="0" step="any"></div>
     <div class="field"><label for="mEta">Order arrives in Dhaka</label><input id="mEta" type="date"></div>
     <div class="field"><label for="mPlan">Planned order (yd)</label><input id="mPlan" type="number" min="0" step="any"></div>
     <div class="field"><label for="mReq">Required by (leave blank to work it out)</label><input id="mReq" type="date"></div>
@@ -124,8 +124,8 @@ try{ Object.assign(UI,{show:localStorage.getItem('jawda.stock.show')||'run'}); }
 
 function stateCell(o){
   if(!o.byRun.length) return '<span class="muted">Not on a run</span>';
-  if(o.state==='ok') return o.etaLate?'<span class="pill warn">Order lands late</span>':'<span class="pill ok">Enough</span>';
-  if(o.state==='ordered') return `<span class="pill info">Covered by order</span>${o.etaLate?' <span class="pill warn">lands late</span>':''}`;
+  if(o.state==='ok') return '<span class="pill ok">Enough</span>';
+  if(o.state==='ordered') return o.shortRun?'<span class="pill warn">Delivery lands too late</span>':'<span class="pill info">Covered by delivery</span>';
   if(o.state==='planned') return '<span class="pill info">Needs the planned order</span>';
   return '<span class="pill warn">Short</span>';
 }
@@ -169,7 +169,7 @@ function render(){
     return true;
   }).sort((a,b)=>(a.f.sort??0)-(b.f.sort??0));
   const groups=new Map(); for(const o of rows){ if(!groups.has(o.f.name)) groups.set(o.f.name,[]); groups.get(o.f.name).push(o); }
-  let html=`<thead><tr><th>Fabric</th><th>Status</th><th class="n">Counted</th><th class="n">+ Bought</th><th class="n">− On runs</th><th class="n">= Left</th><th class="n">On order</th><th class="n">Planned</th><th class="n">Left after orders</th><th>Needed by</th><th></th><th></th></tr></thead><tbody>`;
+  let html=`<thead><tr><th>Fabric</th><th>Status</th><th class="n">Counted</th><th class="n">+ Arrived</th><th class="n">− On runs</th><th class="n">= Left</th><th class="n">Arriving</th><th class="n">Planned</th><th class="n">Left after orders</th><th>Needed by</th><th></th><th></th></tr></thead><tbody>`;
   const sum=(xs,k)=>xs.reduce((a,o)=>a+o[k],0);
   for(const [name,os] of groups){
     html+=`<tr class="gh"><td>${J.esc(name)} <span class="muted">${J.esc(os[0].f.composition||'')}${os[0].f.source?' · '+J.esc(os[0].f.source):''}</span></td><td></td>
@@ -180,16 +180,16 @@ function render(){
       html+=`<tr class="fr" data-open="${x.id}"><td>${open?'▾':'▸'} ${J.esc(x.colour)}</td><td><span class="pill">${J.esc(x.status)}</span></td>
         <td class="n">${f(o.counted)}</td><td class="n">${o.bought?f(o.bought):'–'}</td><td class="n">${o.used?f(o.used):'–'}</td>
         <td class="n left ${o.left<-0.5?'neg':''}">${f(o.left)}</td>
-        <td class="n">${o.onOrder?f(o.onOrder)+(x.on_order_eta?`<div class="muted">${PF.short(x.on_order_eta)}</div>`:''):'–'}</td>
+        <td class="n">${o.onOrder?f(o.onOrder)+`<div class="muted">${o.nextEta?PF.short(o.nextEta):'date not set'}</div>`:'–'}</td>
         <td class="n">${o.planned?f(o.planned):'–'}</td>
         <td class="n ${o.leftAll<-0.5?'neg':''}">${f(o.leftAll)}</td>
         <td>${o.needBy?PF.short(o.needBy)+(x.required_by?' <span class="muted" title="Set by hand">(set)</span>':''):'–'}${o.orderBy?`<div class="muted">Order by ${PF.short(o.orderBy)}</div>`:''}</td>
         <td>${stateCell(o)}</td>
         <td class="n"><button class="ib" data-edit="${x.id}" title="Edit fabric">✎</button></td></tr>`;
       if(open){
-        let bal=o.counted+o.bought;
-        html+=`<tr class="det"><td colspan="12"><div class="cols"><div><h4>Runs using it</h4><ul>${o.byRun.length?o.byRun.map(br=>{bal-=br.yards; return `<li><a href="../production-runs/?run=${br.run.id}">${PF.short(br.run.run_date)} · ${J.esc(br.run.name)}</a><span>${f(br.yards)} yd → <b class="${bal<-0.5?'neg':''}">${f(bal)}</b> left</span></li>`;}).join(''):'<li class="muted">Not on any run</li>'}</ul></div>
-          <div><h4>Purchases linked</h4><ul>${o.purchases.length?o.purchases.map(p=>`<li><span><span class="code">${J.esc(p.fabric_code||'')}</span> ${PF.short(p.entered_on)} · ${J.esc(p.source)}</span><span>${f(p.quantity)} ${J.esc(p.measure)} <button class="ib del" data-unlink="${p.id}" title="Unlink">×</button></span></li>`).join(''):'<li class="muted">None yet – link purchases above once they\'re logged</li>'}</ul>
+        const ev=[...o.incoming.map(a=>({d:a.eta||'9999',arr:a})),...o.byRun.map(br=>({d:br.dhakaBy,br}))].sort((a,b)=>a.d.localeCompare(b.d)||(a.arr?-1:1));
+        html+=`<tr class="det"><td colspan="12"><div class="cols"><div><h4>Deliveries and runs, in date order</h4><ul><li><span>Held now (counted + arrived)</span><span><b>${f(o.counted+o.bought)}</b> yd</span></li>${ev.map(e=>e.arr?`<li><span>📦 ${e.arr.eta?'Arriving '+PF.short(e.arr.eta):'Arriving – date not set'} · ${J.esc(e.arr.label)}</span><span class="pos">+${f(e.arr.yards)} yd</span></li>`:`<li><a href="../production-runs/?run=${e.br.run.id}">✂ ${PF.short(e.br.run.run_date)} · ${J.esc(e.br.run.name)} <span class="muted">(needed in Dhaka ${PF.short(e.br.dhakaBy)})</span></a><span>−${f(e.br.yards)} yd → <b class="${e.br.after<-0.5?'neg':''}">${f(e.br.after)}</b> left</span></li>`).join('')||'<li class="muted">Not on any run</li>'}</ul></div>
+          <div><h4>Purchases linked</h4><ul>${o.purchases.length?o.purchases.map(p=>`<li><span><span class="code">${J.esc(p.fabric_code||'')}</span> ${PF.short(p.entered_on)} · ${J.esc(p.source)}${PF.arrived(p)?'':` · <span class="pill info">Due ${p.expected_on?PF.short(p.expected_on):'– no date'}</span>`}</span><span>${f(p.quantity)} ${J.esc(p.measure)} <button class="ib del" data-unlink="${p.id}" title="Unlink">×</button></span></li>`).join(''):'<li class="muted">None yet – link purchases above once they\'re logged</li>'}</ul>
           ${x.notes?`<h4>Notes</h4><div class="muted">${J.esc(x.notes)}</div>`:''}</div></div></td></tr>`;
       }
     }
@@ -258,8 +258,8 @@ document.addEventListener('change',async e=>{
 $('fSearch').oninput=e=>{ UI.q=e.target.value; render(); $('fSearch').focus(); };
 $('btnAdd').onclick=()=>openFabric(null);
 $('actRefresh').onclick=async()=>{ await PF.load(); render(); J.toast('Up to date'); };
-$('actCsv').onclick=()=>{ const S=PF.stock(); J.csv('jawda-fabric-stock.csv',['Fabric','Colour','Source','Status','Counted','Bought','On runs','Left','On order','Order ETA','Planned','Left after orders','Needed by','Order by'],
-  [...S.values()].map(o=>[o.f.name,o.f.colour,o.f.source||'',o.f.status,o.counted,o.bought,Math.round(o.used),Math.round(o.left),o.onOrder,o.f.on_order_eta||'',o.planned,Math.round(o.leftAll),o.needBy||'',o.orderBy||''])); };
+$('actCsv').onclick=()=>{ const S=PF.stock(); J.csv('jawda-fabric-stock.csv',['Fabric','Colour','Source','Status','Counted','Bought','On runs','Left','Arriving','Next arrival','Planned','Left after orders','Needed by','Order by'],
+  [...S.values()].map(o=>[o.f.name,o.f.colour,o.f.source||'',o.f.status,o.counted,o.bought,Math.round(o.used),Math.round(o.left),o.onOrder,o.nextEta||'',o.planned,Math.round(o.leftAll),o.needBy||'',o.orderBy||''])); };
 J.boot(async()=>{ await PF.load(); render(); if(J.mode==='remote') J.setSave('Saved for the team'); });
 </script>
 </body>

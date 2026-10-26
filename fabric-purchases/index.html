@@ -23,8 +23,11 @@
 .addcard h2 .idprev b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid var(--line);padding:2px 8px;border-radius:6px;color:var(--crater)}
 .fgrid{display:grid;grid-template-columns:140px 1fr 1.2fr 1.3fr 1fr;gap:12px}
 .fgrid2{display:grid;grid-template-columns:1.1fr 1.6fr 2fr;gap:12px;margin-top:12px}
-.fgrid4{display:grid;grid-template-columns:1.5fr 2fr;gap:12px;margin-top:12px;align-items:end}
-.fgrid4 p{margin:0 0 10px}
+.fgrid5{display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px;align-items:start}
+.due{display:inline-flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap}
+.due .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#E4E8EF;color:#3D4E6B;white-space:nowrap}
+.due .pill.late{background:#F6E3D7;color:var(--umber)}
+.due button{font-size:11px;font-weight:600;color:var(--umber);text-decoration:underline}
 .fgrid3{display:grid;grid-template-columns:1.5fr 1fr 1.4fr 1fr;gap:12px;margin-top:12px}
 .pricebox{display:flex;gap:6px}
 .pricebox input{text-align:right;font-variant-numeric:tabular-nums}
@@ -93,7 +96,7 @@
   .fgrid{grid-template-columns:1fr 1fr}
   .fgrid2{grid-template-columns:1fr}
   .fgrid3{grid-template-columns:1fr 1fr}
-  .fgrid4{grid-template-columns:1fr}
+  .fgrid5{grid-template-columns:1fr}
 }
 @media (max-width:560px){ .fgrid,.fgrid3{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
 @media (max-width:760px){
@@ -184,7 +187,8 @@
         <div class="field"><label for="aPrice">Price paid</label><div class="pricebox"><input type="number" id="aPrice" inputmode="decimal" min="0" step="any" placeholder="0.00"></div></div>
         <div class="field"><label for="aBasis">Price is</label><select id="aBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
       </div>
-      <div class="fgrid4"><div class="field"><label for="aStock">Adds to stock</label><select id="aStock"></select></div><p class="muted" id="aStockHint">Links this purchase to a fabric in Fabric Stock, so its yards count towards production runs.</p></div>
+      <div class="fgrid5"><div class="field"><label for="aExp">Expected delivery</label><input type="date" id="aExp"><div class="muted" style="font-size:12px;margin-top:4px">For mill orders – when it'll be in Dhaka. Leave blank if it's already here.</div></div>
+        <div class="field" id="aStockWrap"><label for="aStock">Adds to stock</label><select id="aStock"></select><div class="muted" style="font-size:12px;margin-top:4px">So its yards count towards production runs.</div></div></div>
       <div class="actions">
         <span class="hint">Press Enter to add. "Add & next colour" keeps everything except the colour and quantity.</span>
         <button type="button" class="btn line" id="btnNext">Add &amp; next colour</button>
@@ -221,6 +225,8 @@
       <div class="field"><label for="ePrice">Price paid</label><input type="number" id="ePrice" min="0" step="any"></div>
       <div class="field"><label for="eBasis">Price is</label><select id="eBasis"><option value="unit">Per yard / kg</option><option value="total">Total paid</option></select></div>
       <div class="field wide"><label for="eMake">What we can make from it</label><input id="eMake"></div>
+      <div class="field"><label for="eExp">Expected delivery</label><input type="date" id="eExp"></div>
+      <div class="field"><label for="eRecv">Arrived?</label><select id="eRecv"><option value="1">Yes – it's in Dhaka</option><option value="0">Not yet – on its way</option></select></div>
       <div class="field wide"><label for="eStock">Adds to stock</label><select id="eStock"></select></div>
       <p class="muted wide" style="margin:0">The ID stays the same if you change the source or fabric type.</p>
     </div>
@@ -254,8 +260,8 @@ function stockOptions(desc,colour,source,sel){
 }
 function bestStock(desc,colour,source){ let best=null,bs=2; for(const x of STOCKF){ const s=stockScore(desc,colour,source,x); if(s>bs){bs=s;best=x;} } return best&&bs>=3?best.id:''; }
 function refreshAddStock(){
-  if(!STOCKF.length){ $('aStock').closest('.fgrid4').classList.add('hidden'); return; }
-  $('aStock').closest('.fgrid4').classList.remove('hidden');
+  if(!STOCKF.length){ $('aStockWrap').classList.add('hidden'); return; }
+  $('aStockWrap').classList.remove('hidden');
   const keep=$('aStock').value, auto=stockTouched?keep:bestStock($('aDesc').value,$('aColour').value,A.source);
   $('aStock').innerHTML=stockOptions($('aDesc').value,$('aColour').value,A.source,auto); $('aStock').value=auto;
 }
@@ -357,7 +363,8 @@ async function submitAdd(keep){
   if(!$('aColour').value.trim()){ $('aColour').focus(); return; }
   if(isNaN(qty)||qty<0){ $('aQty').focus(); return; }
   const obj={entered_on:$('aDate').value||J.today(), source:A.source, fabric_type:t, description:$('aDesc').value.trim()||typeName(t)+' Fabric', colour:$('aColour').value.trim(), measure:A.measure, quantity:qty, can_make:$('aMake').value.trim()||null,
-    composition:$('aComp').value.trim()||null, currency:$('aPrice').value!==''?A.currency:null, price_amount:$('aPrice').value!==''?parseFloat($('aPrice').value):null, price_basis:$('aBasis').value};
+    composition:$('aComp').value.trim()||null, currency:$('aPrice').value!==''?A.currency:null, price_amount:$('aPrice').value!==''?parseFloat($('aPrice').value):null, price_basis:$('aBasis').value,
+    expected_on:$('aExp').value||null, received:!$('aExp').value||$('aExp').value<=J.today()};
   $('btnAdd').disabled=$('btnNext').disabled=true;
   if(J.mode==='remote'&&STOCKF.length){ const sid=await resolveStock($('aStock').value,obj); if(sid) obj.stock_fabric_id=sid; }
   const row=await insertRow(obj);
@@ -365,7 +372,7 @@ async function submitAdd(keep){
   if(!row) return;
   J.toast(`Added ${row.fabric_code} – ${row.colour}, ${J.num(row.quantity)} ${row.measure}`);
   $('aColour').value=''; $('aQty').value=''; stockTouched=false; refreshAddStock();
-  if(!keep){ $('aMake').value=''; $('aComp').value=''; $('aPrice').value=''; }
+  if(!keep){ $('aMake').value=''; $('aComp').value=''; $('aPrice').value=''; $('aExp').value=''; }
   fillTypeSelects(); render(); updatePreview(); $('aColour').focus();
 }
 
@@ -385,6 +392,7 @@ function render(){
   $('stats').innerHTML=[
     [P.rows.length,'Purchases'],
     [J.num(sum(P.rows,'yards')),'Yards bought'],
+    [J.num(P.rows.filter(r=>r.received===false&&r.measure==='yards').reduce((a,r)=>a+ +r.quantity,0)),'Yards on the way'],
     [J.num(sum(P.rows,'kg')),'Kg bought'],
     [new Set(P.rows.map(r=>r.fabric_type)).size,'Fabric types'],
     [new Set(P.rows.map(r=>r.fabric_type+'|'+r.colour.toLowerCase())).size,'Fabric colours'],
@@ -396,7 +404,7 @@ function render(){
   if(!rows.length) h+=`<div class="empty">${P.rows.length?'No purchases match these filters.':'No purchases yet. Add the first one above.'}</div>`;
   rows.forEach(r=>{
     h+=`<div class="tr" data-id="${r.id}">
-      <div class="c-date date">${J.fmtDate(r.entered_on)}</div>
+      <div class="c-date date">${J.fmtDate(r.entered_on)}${r.received===false?`<div class="due"><span class="pill ${r.expected_on&&r.expected_on<J.today()?'late':''}">${r.expected_on?(r.expected_on<J.today()?'Was due ':'Due ')+J.fmtDate(r.expected_on).replace(/ \d{4}$/,''):'On its way'}</span><button type="button" data-arrived="${r.id}">Mark arrived</button></div>`:''}</div>
       <div class="c-code"><span class="code">${J.esc(r.fabric_code||'…')}</span></div>
       <div class="c-src"><span class="src ${r.source}">${r.source}</span></div>
       <div class="c-desc">${J.esc(r.description)}<div class="muted c-meta"><span class="src ${r.source}">${r.source}</span> · ${J.esc(r.colour)}${r.composition?' · '+J.esc(r.composition):''} · ${J.fmtDate(r.entered_on)}</div></div>
@@ -421,6 +429,7 @@ async function duplicate(id){
   const copy={entered_on:J.today(), source:r.source, fabric_type:r.fabric_type, description:r.description, colour:r.colour, measure:r.measure, quantity:+r.quantity,
     can_make:r.can_make||null, composition:r.composition||null, currency:r.currency||null, price_amount:r.price_amount??null, price_basis:r.price_basis||'unit'};
   if(r.stock_fabric_id) copy.stock_fabric_id=r.stock_fabric_id;
+  if(r.expected_on){ copy.expected_on=r.expected_on; copy.received=r.received; }
   const row=await insertRow(copy); if(!row) return;
   fillTypeSelects(); render(); updatePreview();
   J.toast(`Duplicated ${r.fabric_code} as ${row.fabric_code} – change the colour or quantity`);
@@ -432,6 +441,7 @@ function openEdit(id){
   const r=P.rows.find(x=>x.id===id); if(!r) return; P.editing=id;
   $('eCode').textContent=r.fabric_code||''; $('eDate').value=r.entered_on; $('eSource').value=r.source; $('eType').value=r.fabric_type;
   $('eDesc').value=r.description; $('eColour').value=r.colour; $('eMeasure').value=r.measure; $('eQty').value=+r.quantity; $('eMake').value=r.can_make||''; $('eComp').value=r.composition||''; $('eCur').value=r.currency||''; $('ePrice').value=r.price_amount??''; $('eBasis').value=r.price_basis||'unit';
+  $('eExp').value=r.expected_on||''; $('eRecv').value=r.received===false?'0':'1';
   $('eStock').innerHTML=stockOptions(r.description,r.colour,r.source,r.stock_fabric_id); $('eStock').value=r.stock_fabric_id||''; $('eStock').closest('.field').classList.toggle('hidden',!STOCKF.length);
   $('eDel').classList.remove('arm'); $('eDel').textContent='Delete purchase';
   $('editModal').classList.add('on'); $('eQty').focus();
@@ -463,6 +473,7 @@ $('btnNext').onclick=()=>submitAdd(true);
 $('tbl').addEventListener('click',e=>{
   const s=e.target.closest('[data-sort]'); if(s){ const k=s.dataset.sort; P.sort = P.sort.k===k ? {k,dir:-P.sort.dir} : {k,dir:k==='entered_on'||k==='quantity'?-1:1}; render(); return; }
   const dp=e.target.closest('[data-dup]'); if(dp){ duplicate(dp.dataset.dup); return; }
+  const ar=e.target.closest('[data-arrived]'); if(ar){ updateRow(ar.dataset.arrived,{received:true}).then(ok=>{ if(ok){ J.toast('Marked as arrived – it now counts as stock in Dhaka'); render(); } }); return; }
   const ed=e.target.closest('[data-edit]'); if(ed){ openEdit(ed.dataset.edit); }
 });
 $('tbl').addEventListener('change',async e=>{
@@ -482,7 +493,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && P.editing) close
 $('editForm').onsubmit=async e=>{
   e.preventDefault(); const id=P.editing; if(!id) return;
   const patch={entered_on:$('eDate').value, source:$('eSource').value, fabric_type:$('eType').value, description:$('eDesc').value.trim(), colour:$('eColour').value.trim(), measure:$('eMeasure').value, quantity:parseFloat($('eQty').value)||0, can_make:$('eMake').value.trim()||null,
-    composition:$('eComp').value.trim()||null, currency:$('ePrice').value!==''?($('eCur').value||'USD'):null, price_amount:$('ePrice').value!==''?parseFloat($('ePrice').value):null, price_basis:$('eBasis').value};
+    composition:$('eComp').value.trim()||null, currency:$('ePrice').value!==''?($('eCur').value||'USD'):null, price_amount:$('ePrice').value!==''?parseFloat($('ePrice').value):null, price_basis:$('eBasis').value,
+    expected_on:$('eExp').value||null, received:$('eRecv').value==='1'};
   if(J.mode==='remote'&&STOCKF.length){ patch.stock_fabric_id=await resolveStock($('eStock').value,patch); }
   if(await updateRow(id,patch)){ closeEdit(); fillTypeSelects(); render(); J.toast('Saved'); }
 };
@@ -494,8 +506,8 @@ $('eDel').onclick=async()=>{
 
 $('actRefresh').onclick=async()=>{await load(); fillTypeSelects(); render(); updatePreview(); J.toast('Refreshed');};
 $('actCsv').onclick=()=>J.csv('jawda-fabric-purchases.csv',
-  ['Date entered','ID','Source','Fabric type','Product description','Composition','Colour','Measure','Quantity','Currency','Price paid','Price is','Unit price','Total paid','What we can make'],
-  filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.composition||'',r.colour,r.measure,r.quantity,r.currency||'',r.price_amount??'',r.price_amount!=null?(r.price_basis==='total'?'Total':'Per '+(r.measure==='yards'?'yard':'kg')):'',unitPrice(r)??'',totalPaid(r)??'',r.can_make||'']));
+  ['Date entered','ID','Source','Fabric type','Product description','Composition','Colour','Measure','Quantity','Currency','Price paid','Price is','Unit price','Total paid','What we can make','Expected delivery','Arrived'],
+  filtered().map(r=>[r.entered_on,r.fabric_code,r.source,typeName(r.fabric_type),r.description,r.composition||'',r.colour,r.measure,r.quantity,r.currency||'',r.price_amount??'',r.price_amount!=null?(r.price_basis==='total'?'Total':'Per '+(r.measure==='yards'?'yard':'kg')):'',unitPrice(r)??'',totalPaid(r)??'',r.can_make||'',r.expected_on||'',r.received===false?'No':'Yes']));
 
 J.boot(async()=>{ await load(); fillTypeSelects(); if(!$('aType').value) $('aType').value='ct'; autoDesc(); render(); updatePreview(); refreshAddStock(); });
 </script>
