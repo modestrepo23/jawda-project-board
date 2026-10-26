@@ -7,7 +7,9 @@ window.LINKS = (() => {
   const L = {};
   L.norm = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/&/g, ' and ')
     .replace(/\bwith\b/g, ' ').replace(/two[\s-]*piece( set)?/g, 'two piece').replace(/[^a-z0-9]+/g, ' ').trim();
-  const same = (a, b) => { const x = L.norm(a), y = L.norm(b); return !!x && !!y && (x === y || (x.length > 8 && y.length > 8 && (x.includes(y) || y.includes(x)))); };
+  // a season tag (SS26, AW25…) on only one side means a different design, e.g. "Umbrella Sleeve Abaya - SS26" ≠ the Ramadan one
+  const tags = s => (s.match(/\b(ss|aw|fw)\d{2}\b/g) || []).join(' ');
+  const same = (a, b) => { const x = L.norm(a), y = L.norm(b); if (!x || !y || tags(x) !== tags(y)) return false; return x === y || (x.length > 8 && y.length > 8 && (x.includes(y) || y.includes(x))); };
   // samples: all samples; swatches: all swatches; fabricName: (fabric_id) => fabric name in Fabric Stock
   L.sampleFor = (line, samples, swatches, fabricName) => {
     if (line.sample_id) return samples.find(s => s.id === line.sample_id) || null;
