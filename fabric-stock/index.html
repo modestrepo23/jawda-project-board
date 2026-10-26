@@ -107,6 +107,7 @@ tr.det td{background:#fff!important;padding:4px 22px 14px}
     <div class="field"><label for="mPlan">Planned order (yd)</label><input id="mPlan" type="number" min="0" step="any"></div>
     <div class="field"><label for="mReq">Required by (leave blank to work it out)</label><input id="mReq" type="date"></div>
     <div class="field"><label for="mPrice">Price (£ / yd)</label><input id="mPrice" type="number" min="0" step="0.01"></div>
+    <div class="field"><label for="mYpk">Yards per kg (if bought by weight)</label><input id="mYpk" type="number" min="0" step="0.01" placeholder="e.g. 2.0"></div>
     <div class="field full"><label for="mNotes">Notes</label><textarea id="mNotes" rows="2"></textarea></div>
   </div>
   <div class="mf"><button class="btn line l" id="mDel">Delete fabric</button><button class="btn line" data-close>Cancel</button><button class="btn primary" id="mSave">Save</button></div>
@@ -148,7 +149,7 @@ function render(){
   $('unlCard').classList.toggle('hidden',!unl.length);
   $('unl').innerHTML=unl.map(p=>{
     const opts=[...D.fabrics].map(x=>({x,score:score(p,x)})).sort((a,b)=>b.score-a.score||(a.x.sort??0)-(b.x.sort??0));
-    return `<li><span class="what"><span class="code">${J.esc(p.fabric_code||'')}</span> ${J.esc(p.description)} – ${J.esc(p.colour)} · <b>${f(p.quantity)} ${J.esc(p.measure)}</b> <span class="muted">${J.esc(p.source)} · ${PF.short(p.entered_on)}</span>${p.measure==='kg'?' <span class="pill warn">kg – not counted in yards</span>':''}</span>
+    return `<li><span class="what"><span class="code">${J.esc(p.fabric_code||'')}</span> ${J.esc(p.description)} – ${J.esc(p.colour)} · <b>${f(p.quantity)} ${J.esc(p.measure)}</b> <span class="muted">${J.esc(p.source)} · ${PF.short(p.entered_on)}</span>${p.measure==='kg'?' <span class="pill warn">kg – counts once the fabric has yards per kg</span>':''}</span>
       <select class="in" data-link="${p.id}"><option value="">Link to…</option>${opts.map(({x,score})=>`<option value="${x.id}">${score>=2?'★ ':''}${J.esc(PF.fabricName(x))}</option>`).join('')}</select>
       <button class="btn line sm" data-newfrom="${p.id}">New stock fabric</button></li>`;
   }).join('');
@@ -184,12 +185,12 @@ function render(){
         <td class="n">${o.planned?f(o.planned):'–'}</td>
         <td class="n ${o.leftAll<-0.5?'neg':''}">${f(o.leftAll)}</td>
         <td>${o.needBy?PF.short(o.needBy)+(x.required_by?' <span class="muted" title="Set by hand">(set)</span>':''):'–'}${o.orderBy?`<div class="muted">Order by ${PF.short(o.orderBy)}</div>`:''}</td>
-        <td>${stateCell(o)}</td>
+        <td>${stateCell(o)}${o.kgUnconverted?` <span class="pill warn" title="Bought by weight – set yards per kg (✎) to count it">${f(o.kgUnconverted)} kg not counted</span>`:''}</td>
         <td class="n"><button class="ib" data-edit="${x.id}" title="Edit fabric">✎</button></td></tr>`;
       if(open){
         const ev=[...o.incoming.map(a=>({d:a.eta||'9999',arr:a})),...o.byRun.map(br=>({d:br.dhakaBy,br}))].sort((a,b)=>a.d.localeCompare(b.d)||(a.arr?-1:1));
         html+=`<tr class="det"><td colspan="12"><div class="cols"><div><h4>Deliveries and runs, in date order</h4><ul><li><span>Held now (counted + arrived)</span><span><b>${f(o.counted+o.bought)}</b> yd</span></li>${ev.map(e=>e.arr?`<li><span>📦 ${e.arr.eta?'Arriving '+PF.short(e.arr.eta):'Arriving – date not set'} · ${J.esc(e.arr.label)}</span><span class="pos">+${f(e.arr.yards)} yd</span></li>`:`<li><a href="../production-runs/?run=${e.br.run.id}">✂ ${PF.short(e.br.run.run_date)} · ${J.esc(e.br.run.name)} <span class="muted">(needed in Dhaka ${PF.short(e.br.dhakaBy)})</span></a><span>−${f(e.br.yards)} yd → <b class="${e.br.after<-0.5?'neg':''}">${f(e.br.after)}</b> left</span></li>`).join('')||'<li class="muted">Not on any run</li>'}</ul></div>
-          <div><h4>Purchases linked</h4><ul>${o.purchases.length?o.purchases.map(p=>`<li><span><span class="code">${J.esc(p.fabric_code||'')}</span> ${PF.short(p.entered_on)} · ${J.esc(p.source)}${PF.arrived(p)?'':` · <span class="pill info">Due ${p.expected_on?PF.short(p.expected_on):'– no date'}</span>`}</span><span>${f(p.quantity)} ${J.esc(p.measure)} <button class="ib del" data-unlink="${p.id}" title="Unlink">×</button></span></li>`).join(''):'<li class="muted">None yet – link purchases above once they\'re logged</li>'}</ul>
+          <div><h4>Purchases linked</h4><ul>${o.purchases.length?o.purchases.map(p=>`<li><span><span class="code">${J.esc(p.fabric_code||'')}</span> ${PF.short(p.entered_on)} · ${J.esc(p.source)}${PF.arrived(p)?'':` · <span class="pill info">Due ${p.expected_on?PF.short(p.expected_on):'– no date'}</span>`}</span><span>${f(p.quantity)} ${J.esc(p.measure)}${p.measure==='kg'&&+x.yards_per_kg?` ≈ ${f(p.quantity*x.yards_per_kg)} yd`:''} <button class="ib del" data-unlink="${p.id}" title="Unlink">×</button></span></li>`).join(''):'<li class="muted">None yet – link purchases above once they\'re logged</li>'}</ul>
           ${x.notes?`<h4>Notes</h4><div class="muted">${J.esc(x.notes)}</div>`:''}</div></div></td></tr>`;
       }
     }
@@ -216,7 +217,7 @@ function openFabric(x,p){
   $('mName').value=v('name',p?p.description:''); $('mColour').value=v('colour',p?p.colour:''); $('mComp').value=v('composition',p?.composition||'');
   $('mSource').value=v('source',p?.source||''); $('mStatus').value=v('status','In stock'); $('mCount').value=v('in_stock',0);
   $('mOrder').value=v('on_order',0); $('mEta').value=v('on_order_eta'); $('mPlan').value=v('planned_order',0); $('mReq').value=v('required_by');
-  $('mPrice').value=v('price_gbp'); $('mNotes').value=v('notes'); $('mDel').classList.toggle('hidden',!x); $('mDel').textContent='Delete fabric';
+  $('mPrice').value=v('price_gbp'); $('mYpk').value=v('yards_per_kg'); $('mNotes').value=v('notes'); $('mDel').classList.toggle('hidden',!x); $('mDel').textContent='Delete fabric';
   $('fm').classList.add('on'); $('mName').focus();
 }
 $('mSave').onclick=async()=>{
@@ -224,7 +225,7 @@ $('mSave').onclick=async()=>{
   const n=k=>$(k).value===''?0:+$(k).value;
   const row={...(editing||{sort:PF.D.fabrics.reduce((a,x)=>Math.max(a,x.sort??0),0)+1}),name,colour,composition:$('mComp').value.trim()||null,source:$('mSource').value.trim()||null,
     status:$('mStatus').value,in_stock:n('mCount'),on_order:n('mOrder'),on_order_eta:$('mEta').value||null,planned_order:n('mPlan'),required_by:$('mReq').value||null,
-    price_gbp:$('mPrice').value===''?null:+$('mPrice').value,notes:$('mNotes').value.trim()||null};
+    price_gbp:$('mPrice').value===''?null:+$('mPrice').value,yards_per_kg:$('mYpk').value===''?null:+$('mYpk').value,notes:$('mNotes').value.trim()||null};
   if(!editing&&PF.D.fabrics.some(x=>x.name===name&&x.colour===colour)){ J.toast('That fabric and colour already exists'); return; }
   if(await PF.put('fabrics',row)){
     if(fromPurchase) await PF.patch('purchases',fromPurchase.id,{stock_fabric_id:row.id});

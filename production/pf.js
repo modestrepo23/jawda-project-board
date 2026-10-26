@@ -151,7 +151,8 @@ window.PF = (() => {
   // Fabric: counted stock + purchases that have arrived − yards on runs since the count.
   // Purchases not yet arrived (and mill orders) count from their expected delivery date:
   // a run can only use fabric that is in Dhaka by run date − dhaka_buffer_days.
-  const yardsOfPurchase = p => p.measure === 'yards' ? (+p.quantity || 0) : 0;
+  // fabric bought by weight converts with the fabric's yards per kg (0 until it's set)
+  const yardsOfPurchase = (p, f) => p.measure === 'yards' ? (+p.quantity || 0) : (+p.quantity || 0) * (+(f && f.yards_per_kg) || 0);
   PF.arrived = p => p.received !== false;
   PF.stock = () => {
     const s = PF.D.settings, since = s.fabric_count_date;
@@ -162,9 +163,10 @@ window.PF = (() => {
     for (const p of PF.D.purchases) {
       const o = out.get(p.stock_fabric_id); if (!o) continue;
       if (since && p.entered_on < since) continue;
-      o.purchases.push(p); if (p.measure === 'kg') o.kg += +p.quantity || 0;
-      if (PF.arrived(p)) o.bought += yardsOfPurchase(p);
-      else if (yardsOfPurchase(p)) o.incoming.push({ yards: yardsOfPurchase(p), eta: p.expected_on || null, label: p.fabric_code || 'Purchase', purchase: p });
+      o.purchases.push(p); const y = yardsOfPurchase(p, o.f);
+      if (p.measure === 'kg') { o.kg += +p.quantity || 0; if (!(+o.f.yards_per_kg)) o.kgUnconverted = (o.kgUnconverted || 0) + (+p.quantity || 0); }
+      if (PF.arrived(p)) o.bought += y;
+      else if (y) o.incoming.push({ yards: y, eta: p.expected_on || null, label: p.fabric_code || 'Purchase', purchase: p });
     }
     for (const o of out.values()) if (+o.f.on_order > 0) o.incoming.push({ yards: +o.f.on_order, eta: o.f.on_order_eta || null, label: 'Mill order' });
     for (const r of runs) {
