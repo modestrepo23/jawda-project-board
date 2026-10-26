@@ -28,6 +28,8 @@ window.PF = (() => {
         J.mode = 'remote';
         PF.D = { settings: { ...DEF, ...((res[0].data[0] || {}).value || {}) }, months: res[1].data, runs: res[2].data,
           fabrics: res[3].data, lines: res[4].data, purchases: res[5].data };
+        const ex = await Promise.all([q('samples'), q('swatches'), q('sample_collections')]);
+        PF.D.samples = ex[0].error ? [] : ex[0].data; PF.D.swatches = ex[1].error ? [] : ex[1].data; PF.D.sample_collections = ex[2].error ? [] : ex[2].data;
         return PF.D;
       }
       PF.loadError = err.error.message;
@@ -36,6 +38,8 @@ window.PF = (() => {
     const saved = J.safe(J.get(LS), null) || window.PF_TEST_SEED || { settings: {}, months: [], runs: [], fabrics: [], lines: [], purchases: [] };
     PF.D = JSON.parse(JSON.stringify(saved));
     PF.D.settings = { ...DEF, ...PF.D.settings };
+    const ss = window.SAMPLES_TEST_SEED || {};
+    PF.D.samples = PF.D.samples || ss.samples || []; PF.D.swatches = PF.D.swatches || ss.swatches || []; PF.D.sample_collections = PF.D.sample_collections || ss.sample_collections || [];
     return PF.D;
   };
   const persistLocal = () => J.set(LS, JSON.stringify(PF.D));
@@ -103,6 +107,9 @@ window.PF = (() => {
   PF.pieces = l => Object.values(l.sizes || {}).reduce((a, b) => a + (+b || 0), 0);
   PF.yards = l => PF.pieces(l) * (+l.consumption || 0);
   PF.fabric = id => PF.D.fabrics.find(f => f.id === id);
+  // the sample a run line comes from (see production/links.js) and whether it's approved
+  PF.sampleOf = l => window.LINKS ? LINKS.sampleFor(l, PF.D.samples || [], PF.D.swatches || [], id => (PF.fabric(id) || {}).name) : null;
+  PF.sampleOk = l => { const sm = PF.sampleOf(l); return sm ? sm.sample_status === 'Approved' : !!l.sample_approved; };
   PF.fabricName = f => f ? `${f.name} – ${f.colour}` : '';
   PF.run = id => PF.D.runs.find(r => r.id === id);
   PF.runsSorted = () => [...PF.D.runs].sort((a, b) => a.run_date.localeCompare(b.run_date));

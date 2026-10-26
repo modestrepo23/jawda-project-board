@@ -127,6 +127,7 @@ main{padding-bottom:150px}
 <div id="toast"></div>
 
 <script src="../production/shared.js"></script>
+<script src="../production/links.js"></script>
 <script src="../production/pf.js"></script>
 <script>
 const TRACKER='https://docs.google.com/spreadsheets/d/134V1xi7YLlEau3UEKVopaaFhW9KwLtq5Wh8UIvqk2JM/edit#gid=';
@@ -159,6 +160,13 @@ function render(){
   $('designList').innerHTML=[...new Set(PF.D.lines.map(l=>l.design))].sort().map(d=>`<option value="${J.esc(d)}">`).join('');
   renderLines(); renderCalc();
 }
+function samplePick(design,ls){
+  const all=PF.D.samples||[]; if(!all.length) return '';
+  const manual=ls[0].sample_id||''; const auto=manual?null:PF.sampleOf(ls[0]);
+  const colls=new Map((PF.D.sample_collections||[]).map(c=>[c.id,c.name]));
+  const opts=[...all].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(x=>`<option value="${x.id}"${x.id===manual?' selected':''}>${J.esc(x.name)}${x.item_no?' · '+J.esc(x.item_no):''}${colls.get(x.collection_id)?' · '+J.esc(colls.get(x.collection_id)):''}</option>`).join('');
+  return `<select class="in" data-linksample="${J.esc(design)}" title="Which sample this design comes from" style="max-width:260px;font-size:12px"><option value="">${auto?'Sample: '+J.esc(auto.name)+' (auto)':'Sample: none found'}</option>${opts}</select>`;
+}
 function renderLines(){
   const s=PF.D.settings, g=groups();
   let html=`<thead><tr><th>Fabric colour</th><th>Sizes</th><th class="n">Pieces</th><th class="n">Yd / pc</th><th class="n">Yards</th><th>Sample</th><th>Production</th><th></th></tr></thead><tbody>`;
@@ -166,7 +174,7 @@ function renderLines(){
   let di=0;
   for(const [design,ls] of g){
     const k='d'+(di++);
-    html+=`<tr class="dh"><td colspan="2"><input class="in dname" data-rename="${J.esc(design)}" value="${J.esc(design)}"></td><td class="n" data-dpcs="${k}"></td><td colspan="2" class="n" data-dyds="${k}"></td><td colspan="2" data-dmoq="${k}"></td><td class="n"><button class="btn line sm" data-addcol="${J.esc(design)}" title="Add another colour of this design">＋ Colour</button></td></tr>`;
+    html+=`<tr class="dh"><td colspan="2"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="in dname" data-rename="${J.esc(design)}" value="${J.esc(design)}" style="flex:1 1 220px">${samplePick(design,ls)}</div></td><td class="n" data-dpcs="${k}"></td><td colspan="2" class="n" data-dyds="${k}"></td><td colspan="2" data-dmoq="${k}"></td><td class="n" style="white-space:nowrap"><button class="btn line sm" data-addcol="${J.esc(design)}" title="Add another colour of this design">＋ Colour</button></td></tr>`;
     for(const l of ls){
       const keys=sizeKeys(l.sizes);
       html+=`<tr data-line="${l.id}" data-dk="${k}">
@@ -175,7 +183,7 @@ function renderLines(){
         <td class="n"><b data-pcs="${l.id}"></b><div data-cmoq="${l.id}"></div></td>
         <td class="n"><input class="in num cons" type="number" step="0.01" min="0" data-cons="${l.id}" value="${l.consumption}"></td>
         <td class="n" data-yds="${l.id}"></td>
-        <td><button class="tog ${l.sample_approved?'on':''}" data-tog="sample_approved" data-l="${l.id}">${l.sample_approved?'✓ Approved':'Pending'}</button></td>
+        <td>${(()=>{ const sm=PF.sampleOf(l); return sm?`<a class="tog ${sm.sample_status==='Approved'?'on':''}" href="../samples/?s=${sm.id}" title="From Samples: ${J.esc(sm.name)}${sm.item_no?' ('+J.esc(sm.item_no)+')':''}" style="text-decoration:none;display:inline-block">${sm.sample_status==='Approved'?'✓ Approved':J.esc(sm.sample_status||'Not started')} ↗</a>`:`<button class="tog ${l.sample_approved?'on':''}" data-tog="sample_approved" data-l="${l.id}" title="No sample linked – set by hand">${l.sample_approved?'✓ Approved':'Pending'}</button>`; })()}</td>
         <td><button class="tog ${l.production_approved?'on':''}" data-tog="production_approved" data-l="${l.id}">${l.production_approved?'✓ Approved':'Pending'}</button></td>
         <td class="n" style="white-space:nowrap"><button class="ib" data-dup="${l.id}" title="Duplicate line">⧉</button><button class="ib del" data-del="${l.id}" title="Delete line">×</button></td></tr>`;
     }
@@ -232,6 +240,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',async e=>{
   const t=e.target;
   if(t.dataset.fab!==undefined){ const l=line(t.dataset.fab); l.fabric_id=t.value||null; const x=PF.fabric(l.fabric_id); if(x) l.fabric_label=PF.fabricName(x); await PF.put('lines',l); renderCalc(); }
+  else if(t.dataset.linksample!==undefined){ for(const l of PF.runLines(RUN.id).filter(x=>x.design===t.dataset.linksample)){ l.sample_id=t.value||null; await PF.put('lines',l); } renderLines(); renderCalc(); J.toast(t.value?'Linked to the sample':'Back to automatic matching'); }
   else if(t.id==='runStatus'){ RUN.status=t.value; await PF.put('runs',RUN); render(); }
   else if(t.dataset.rename!==undefined){
     const from=t.dataset.rename, to=t.value.trim(); if(!to||to===from){ t.value=from; return; }
@@ -265,7 +274,7 @@ $('nDesign').addEventListener('change',()=>{ const prev=PF.D.lines.filter(l=>l.d
 $('actRefresh').onclick=async()=>{ await PF.load(); RUN=RUN&&PF.run(RUN.id); if(!RUN) pickRun(); render(); J.toast('Up to date'); };
 $('actCsv').onclick=()=>{ if(!RUN) return; const ls=PF.runLines(RUN.id);
   J.csv(`jawda-run-${RUN.run_date}.csv`,['Design','Fabric','Sizes','Pieces','Yards per piece','Yards','Sample approved','Production approved'],
-    ls.map(l=>[l.design,PF.fabricName(PF.fabric(l.fabric_id))||l.fabric_label||'',sizeKeys(l.sizes).map(k=>`${k}:${l.sizes[k]}`).join(' '),PF.pieces(l),l.consumption,Math.round(PF.yards(l)*10)/10,l.sample_approved?'Yes':'No',l.production_approved?'Yes':'No'])); };
+    ls.map(l=>[l.design,PF.fabricName(PF.fabric(l.fabric_id))||l.fabric_label||'',sizeKeys(l.sizes).map(k=>`${k}:${l.sizes[k]}`).join(' '),PF.pieces(l),l.consumption,Math.round(PF.yards(l)*10)/10,PF.sampleOk(l)?'Yes':'No',l.production_approved?'Yes':'No'])); };
 // ---------- Ask Claude ----------
 const ASK={history:[],pending:null,undo:null};
 function askContext(){
@@ -273,7 +282,7 @@ function askContext(){
   return {current_run_id:RUN?RUN.id:null,
     settings:{moq_design:PF.D.settings.moq_design,moq_colour:PF.D.settings.moq_colour,landing_days:PF.D.settings.landing_days},
     runs:PF.runsSorted().map(r=>({id:r.id,run_date:r.run_date,name:r.name,status:r.status,target:r.target,is_remainder:r.is_remainder,pieces:PF.runPieces(r.id)})),
-    lines:PF.D.lines.map(l=>({id:l.id,run_id:l.run_id,design:l.design,fabric_id:l.fabric_id,fabric:l.fabric_id?PF.fabricName(PF.fabric(l.fabric_id)):l.fabric_label,sizes:l.sizes,consumption:l.consumption,sample_approved:l.sample_approved,production_approved:l.production_approved})),
+    lines:PF.D.lines.map(l=>({id:l.id,run_id:l.run_id,design:l.design,fabric_id:l.fabric_id,fabric:l.fabric_id?PF.fabricName(PF.fabric(l.fabric_id)):l.fabric_label,sizes:l.sizes,consumption:l.consumption,sample_approved:PF.sampleOk(l),sample_status:(PF.sampleOf(l)||{}).sample_status||null,production_approved:l.production_approved})),
     fabrics:PF.D.fabrics.map(f=>{const o=S.get(f.id); return {id:f.id,name:f.name,colour:f.colour,status:f.status,yards_left_after_all_runs:o?Math.round(o.left):null,on_order:+f.on_order||0,planned_order:+f.planned_order||0};})};
 }
 function checkOp(o){

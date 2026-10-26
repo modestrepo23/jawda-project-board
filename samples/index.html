@@ -29,6 +29,7 @@
     <a class="brand" href="../production/"><img class="logo" src="../logo-pearl.png" alt="Jawda"><span>Samples</span></a>
     <nav class="pnav" id="pnav" aria-label="Sample pages"></nav>
     <div class="grow"></div>
+    <span class="wip">Work in progress</span>
     <span class="save-state" id="saveState"></span>
     <div class="menu" id="dataMenu">
       <button class="hbtn ghost" id="btnData" aria-label="More">⋯</button>
@@ -54,6 +55,7 @@
       <select id="fStatus" aria-label="Sample status"><option value="">Any sample status</option></select>
       <select id="fSwatch" aria-label="Swatch"><option value="">Any swatch</option></select>
       <span class="seg" id="viewSeg"><button data-view="cards">Cards</button><button data-view="table">Table</button></span>
+      <span class="seg tset" id="colSeg"><button data-cols="status">Status</button><button data-cols="fabric">Fabric</button><button data-cols="accessories">Accessories</button><button data-cols="feedback">Feedback</button></span>
       <span class="grow"></span>
       <span class="muted" id="count"></span>
       <button class="btn primary" id="btnNew">＋ New sample</button>
@@ -90,6 +92,7 @@
 
 <script src="../production/shared.js"></script>
 <script src="media.js"></script>
+<script src="../production/links.js"></script>
 <script>
 const TRACKER='https://docs.google.com/spreadsheets/d/134V1xi7YLlEau3UEKVopaaFhW9KwLtq5Wh8UIvqk2JM/edit#gid=';
 const ST={
@@ -103,8 +106,15 @@ const TYPES=['Abaya','Dress','Two-Piece','Top','Skirt','Trousers','Jacket','Top 
 const SIZES=['50-60','XS-XL','One size'];
 const cls=v=>'st-'+String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const pill=v=>v?`<span class="pill ${cls(v)}">${J.esc(v)}</span>`:'';
-const UI={coll:null,q:'',status:'',swatch:'',view:'cards',open:null};
-try{ UI.view=localStorage.getItem('jawda.samples.view')||'cards'; }catch(e){}
+const UI={coll:null,q:'',status:'',swatch:'',view:'cards',cols:'status',open:null};
+let RUNS={runs:[],lines:[],fabrics:[]};
+const FB=s=>s.feedback_items||[];
+const fbOpen=s=>FB(s).filter(x=>x.status!=='approved').length;
+const fabName=id=>(RUNS.fabrics.find(f=>f.id===id)||{}).name||null;
+const linesOf=s=>RUNS.lines.filter(l=>LINKS.sampleFor(l,S(),SW(),fabName)===s);
+const shortDate=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';
+const fsize=n=>n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round((n||0)/1024))+' KB';
+try{ UI.view=localStorage.getItem('jawda.samples.view')||'cards'; UI.cols=localStorage.getItem('jawda.samples.cols')||'status'; }catch(e){}
 const S=()=>M.D.samples, SW=()=>M.D.swatches, C=()=>M.D.sample_collections;
 const sw=id=>SW().find(x=>x.id===id);
 const cur=()=>S().find(x=>x.id===UI.open);
@@ -131,6 +141,7 @@ async function render(){
   const used=new Set(inColl().flatMap(s=>s.swatch_ids||[]));
   $('fSwatch').innerHTML='<option value="">Any swatch</option>'+SW().filter(x=>used.has(x.id)).map(x=>`<option value="${x.id}"${x.id===UI.swatch?' selected':''}>${J.esc(x.name)}</option>`).join('');
   document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.view===UI.view));
+  document.querySelectorAll('#colSeg button').forEach(b=>b.classList.toggle('on',b.dataset.cols===UI.cols)); $('colSeg').classList.toggle('hidden',UI.view!=='table');
   const list=visible();
   await M.sign([...list.flatMap(s=>s.images||[]),...SW().map(swatchCover).filter(Boolean)]);
   $('count').textContent=`${list.length} of ${inColl().length}`;
@@ -143,17 +154,23 @@ async function render(){
         <div class="ph" data-drop="${s.id}" ${bg(c)}>${c?'':'<span>No photos yet<br>drop pictures here</span>'}${n>1?`<span class="cnt">${n} photos</span>`:''}${c&&c.kind==='reference'?'<span class="ref">Reference</span>':''}</div>
         <div class="bd"><span class="no">${J.esc(s.item_no||'No item no')}${s.launch_group?' · '+J.esc(s.launch_group):''}</span><h3>${J.esc(s.name||'Untitled')}</h3>
           <span class="meta">${[s.type,s.sizing,s.pcs?s.pcs+' pcs':''].filter(Boolean).map(J.esc).join(' · ')}</span>
-          <div class="pills">${s.techpack_status?`<span class="pill ${cls(s.techpack_status)}" title="Tech pack">TP: ${J.esc(s.techpack_status)}</span>`:''}${s.sample_status?`<span class="pill ${cls(s.sample_status)}" title="Sample">${J.esc(s.sample_status)}</span>`:''}${s.fabric_status?`<span class="pill ${cls(s.fabric_status)}" title="Fabric">Fabric: ${J.esc(s.fabric_status)}</span>`:''}</div>
+          <div class="pills">${s.techpack_status?`<span class="pill ${cls(s.techpack_status)}" title="Tech pack">TP: ${J.esc(s.techpack_status)}</span>`:''}${s.sample_status?`<span class="pill ${cls(s.sample_status)}" title="Sample">${J.esc(s.sample_status)}</span>`:''}${s.fabric_status?`<span class="pill ${cls(s.fabric_status)}" title="Fabric">Fabric: ${J.esc(s.fabric_status)}</span>`:''}${fbOpen(s)?`<span class="pill st-awaiting-feedback">${fbOpen(s)} feedback to approve</span>`:FB(s).length?'<span class="pill st-approved">Feedback approved</span>':''}${(s.techpack_files||[]).length||s.techpack_link?'<span class="pill">📄 Tech pack</span>':''}${(()=>{const rs=[...new Set(linesOf(s).map(l=>l.run_id))].map(id=>RUNS.runs.find(r=>r.id===id)).filter(Boolean); return rs.length?`<span class="pill st-ordered" title="On production runs">On run: ${rs.map(r=>shortDate(r.run_date)).join(', ')}</span>`:'';})()}</div>
           <div class="swl">${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>`<span class="swc"><i ${bg(swatchCover(x))}></i><span>${J.esc(x.name)}</span></span>`).join('')}</div>
           ${s.colours?`<span class="meta">${J.esc(s.colours)}</span>`:''}
         </div></div>`;}).join('')}</div>`;
     document.querySelectorAll('[data-drop]').forEach(el=>M.dropzone(el,fs=>addPhotos(S().find(x=>x.id===el.dataset.drop),fs)));
   } else {
     const sel=(s,f)=>`<select class="${cls(s[f])}" data-set="${f}" data-id="${s.id}"><option value=""></option>${ST[f].map(v=>`<option${v===s[f]?' selected':''}>${v}</option>`).join('')}${s[f]&&!ST[f].includes(s[f])?`<option selected>${J.esc(s[f])}</option>`:''}</select>`;
-    $('list').innerHTML=`<div class="tbl"><table class="t"><thead><tr><th></th><th>Item</th><th>Name</th><th>Type</th><th>Sizing</th><th>Tech pack</th><th>Sample</th><th>Fabric</th><th>Swatches</th><th>Colours</th><th>Feedback</th></tr></thead><tbody>${list.map(s=>`<tr>
-      <td><span class="thumb" data-open="${s.id}" ${bg(cover(s))}></span></td><td class="muted">${J.esc(s.item_no||'')}</td><td class="nm" data-open="${s.id}">${J.esc(s.name)}</td><td>${J.esc(s.type||'')}</td><td>${J.esc(s.sizing||'')}</td>
-      <td>${sel(s,'techpack_status')}</td><td>${sel(s,'sample_status')}</td><td>${sel(s,'fabric_status')}</td>
-      <td>${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>J.esc(x.name)).join(', ')}</td><td>${J.esc(s.colours||'')}</td><td class="muted" style="max-width:260px">${J.esc((s.feedback||'').slice(0,140))}</td></tr>`).join('')}</tbody></table></div>`;
+    const cell=(s,f,w=220)=>`<td><textarea class="cellta" data-cell="${f}" data-id="${s.id}" rows="2" style="width:${w}px">${J.esc(s[f]||'')}</textarea></td>`;
+    const SETS={
+      status:[['Type',s=>`<td>${J.esc(s.type||'')}</td>`],['Sizing',s=>`<td>${J.esc(s.sizing||'')}</td>`],['Tech pack',s=>`<td>${sel(s,'techpack_status')}</td>`],['Sample',s=>`<td>${sel(s,'sample_status')}</td>`],['Fabric',s=>`<td>${sel(s,'fabric_status')}</td>`],['Feedback',s=>`<td>${fbOpen(s)?`<span class="pill st-awaiting-feedback">${fbOpen(s)} to approve</span>`:FB(s).length?'<span class="pill st-approved">All approved</span>':'<span class="muted">–</span>'}</td>`],['Files',s=>`<td>${(s.techpack_files||[]).map((f,i)=>`<button class="btn line sm" data-tpopen="${s.id}" data-i="${i}">📄 ${J.esc((f.name||'Tech pack').slice(0,18))}</button>`).join(' ')||(s.techpack_link?`<a class="btn line sm" href="${J.esc(s.techpack_link)}" target="_blank" rel="noopener">Link</a>`:'<span class="muted">–</span>')}</td>`]],
+      fabric:[['Swatches',s=>`<td>${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>J.esc(x.name)).join(', ')||'<span class="muted">–</span>'}</td>`],['Fabric status',s=>`<td>${sel(s,'fabric_status')}</td>`],['Colours',s=>cell(s,'colours',200)],['Pieces',s=>`<td><input class="cellin" data-cell="pcs" data-id="${s.id}" type="number" value="${s.pcs??''}" style="width:70px"></td>`],['Fabric notes',s=>cell(s,'fabric_note',260)]],
+      accessories:[['Accessories',s=>cell(s,'accessories',260)],['Quantity',s=>cell(s,'accessories_qty',140)],['Detailing',s=>cell(s,'detailing',280)]],
+      feedback:[['Sample',s=>`<td>${sel(s,'sample_status')}</td>`],['Open feedback',s=>`<td style="max-width:340px">${FB(s).filter(x=>x.status!=='approved').map(x=>`<div style="margin-bottom:4px">${x.status==='done'?'<span class="pill st-resampling">Changes made</span> ':'• '}${J.esc(x.text)}</div>`).join('')||'<span class="muted">Nothing open</span>'}</td>`],['Notes + changes',s=>cell(s,'changes',260)]]
+    };
+    const cols=SETS[UI.cols]||SETS.status;
+    $('list').innerHTML=`<div class="tbl"><table class="t"><thead><tr><th></th><th>Item</th><th>Name</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${list.map(s=>`<tr>
+      <td><span class="thumb" data-open="${s.id}" ${bg(cover(s))}></span></td><td class="muted">${J.esc(s.item_no||'')}</td><td class="nm" data-open="${s.id}">${J.esc(s.name)}</td>${cols.map(c=>c[1](s)).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 }
 
@@ -175,22 +192,45 @@ async function renderDrawer(){
       <div class="dz" id="dz"><span class="big">＋</span>Drop photos here<br>or paste<div><button type="button" id="pickRef">Add references</button></div><div><button type="button" id="pickSample">Add sample photos</button></div></div></div></div>
   <div class="sec"><h4>Status</h4>
     ${['techpack_status','sample_status','fabric_status','feedback_status'].map(f=>`<div class="strow"><span>${ST_LABEL[f]}</span>${choice(f,ST[f],s[f],f==='feedback_status')}</div>`).join('')}
+    ${(()=>{const n=linesOf(s).length; return n?`<div class="muted" style="margin-top:6px">${s.sample_status==='Approved'?'✓ Approved – shows as approved':'Once approved, it shows as approved'} on ${n} production run line${n>1?'s':''} (below).</div>`:'';})()}
   </div>
+  <div class="sec"><h4>Feedback <span class="r muted">${FB(s).length?`${fbOpen(s)} to approve · ${FB(s).length-fbOpen(s)} approved`:''}</span></h4>
+    <div class="fb">${FB(s).map(x=>`<div class="fbi ${x.status}">
+      <textarea data-fbtext="${x.id}" rows="2">${J.esc(x.text)}</textarea>
+      <div class="acts">${x.status==='approved'?`<button class="ok" data-fb="${x.id}" data-to="open" title="Tap to reopen">✓ Approved</button>`:`<button class="ok" data-fb="${x.id}" data-to="approved">✓ Approve</button>${x.status==='done'?`<button class="mid" data-fb="${x.id}" data-to="open" title="Tap to undo">Changes made ✓</button>`:`<button data-fb="${x.id}" data-to="done">Changes made</button>`}`}</div>
+      <div class="meta">Added ${shortDate(x.added)}${x.done_on&&x.status!=='open'?` · changes made ${shortDate(x.done_on)}`:''}${x.approved_on&&x.status==='approved'?` · approved ${shortDate(x.approved_on)}`:''}<button class="ib" data-fbdel="${x.id}" style="margin-left:auto;font-size:12px">Remove</button></div>
+    </div>`).join('')}
+      <div class="fbadd"><textarea id="fbNew" rows="1" placeholder="Add feedback – e.g. reduce the sleeve length by 1 inch (Enter to add)"></textarea><button class="btn dark sm" id="fbAdd" type="button">Add</button></div>
+    </div></div>
+  <div class="sec"><h4>Tech pack <span class="r muted">PDF, Illustrator, Excel or Word · up to 50 MB</span></h4>
+    <div class="files">${(s.techpack_files||[]).map((f,i)=>`<div class="file"><span class="fi">${J.esc(((f.name||'').match(/\.([a-z0-9]+)$/i)||[,'FILE'])[1].toUpperCase().slice(0,4))}</span><span class="fn"><b>${J.esc(f.name||'Tech pack')}</b><span>${fsize(f.size)}${f.added?' · added '+shortDate(f.added):''}</span></span><button class="btn line sm" data-tpview="${i}">View</button><button class="btn line sm" data-tpdl="${i}">Download</button><button class="ib" data-tprm="${i}" title="Remove">×</button></div>`).join('')}
+      <div class="fdz" id="tpDz">Drop the tech pack here, or <b>choose a file</b></div>
+      <div class="fg">${inp('techpack_name','Tech pack name',s)}<div class="field"><label>Or a link (Drive etc.)</label><div style="display:flex;gap:6px"><input data-f="techpack_link" value="${J.esc(s.techpack_link||'')}" placeholder="https://…">${s.techpack_link?`<a class="btn line sm" href="${J.esc(s.techpack_link)}" target="_blank" rel="noopener">Open</a>`:''}</div></div></div>
+    </div></div>
   <div class="sec"><h4>Fabric</h4>
     <div class="swl" id="swSel" style="margin-bottom:8px">${(s.swatch_ids||[]).map(sw).filter(Boolean).map(x=>`<span class="swc"><i ${bg(swatchCover(x))}></i><span>${J.esc(x.code||'')} ${J.esc(x.name)}</span><button data-unsw="${x.id}" title="Remove">×</button></span>`).join('')||'<span class="muted">No swatch chosen yet</span>'}</div>
     <div class="picker" id="picker"><div class="field"><input id="swQ" placeholder="Add a swatch – type to search, or a new name to create one" autocomplete="off"></div><div class="pl" id="swList"></div></div>
     <div class="fg" style="margin-top:10px">${inp('colours','Colours',s,'e.g. Black, Espresso, Tea Leaf, Moonbeam')}${inp('pcs','Pieces planned',s,'e.g. 80','number')}${ta('fabric_note','Fabric notes',s,2)}</div>
   </div>
+  <div class="sec"><h4>Accessories</h4><div class="fg">${inp('accessories','Accessories',s,'e.g. (DTM) hidden zipper 13.5 inch')}${inp('accessories_qty','Quantity per piece',s,'e.g. 1pc')}</div></div>
   <div class="sec"><h4>Design</h4>
     <div class="fg">
       <div class="field full"><label>Type</label>${choice('type',TYPES,s.type)}</div>
       <div class="field"><label>Sizing</label>${choice('sizing',SIZES,s.sizing)}</div>
       <div class="field"><label>Launch group</label>${choice('launch_group',['P1','P2','P3'],s.launch_group)}</div>
       ${ta('detailing','Detailing',s,3)}
-      ${inp('accessories','Accessories',s,'e.g. (DTM) hidden zipper 13.5 inch')}${inp('accessories_qty','Accessories quantity',s,'e.g. 1pc')}
-      ${inp('techpack_name','Tech pack name',s)}<div class="field"><label>Tech pack link</label><div style="display:flex;gap:6px"><input data-f="techpack_link" value="${J.esc(s.techpack_link||'')}" placeholder="https://…">${s.techpack_link?`<a class="btn line sm" href="${J.esc(s.techpack_link)}" target="_blank" rel="noopener">Open</a>`:''}</div></div>
     </div></div>
-  <div class="sec"><h4>Feedback &amp; changes</h4><div class="fg">${ta('feedback','Feedback',s,3)}${ta('changes','Notes + changes',s,3)}${ta('notes','Notes',s,2)}</div></div>`;
+  <div class="sec"><h4>On production runs</h4>${(()=>{
+    const ls=linesOf(s); if(!ls.length) return '<span class="muted">Not on a production run yet. It links automatically when a run has a design with the same name.</span>';
+    const by=new Map(); ls.forEach(l=>{ if(!by.has(l.run_id)) by.set(l.run_id,[]); by.get(l.run_id).push(l); });
+    return [...by].map(([rid,xs])=>{ const r=RUNS.runs.find(x=>x.id===rid)||{}; const pc=l=>Object.values(l.sizes||{}).reduce((a,b)=>a+(+b||0),0);
+      return `<a class="runlink" href="../production-runs/?run=${rid}"><span><b>${shortDate(r.run_date)} · ${J.esc(r.name||'')}</b><br><span class="muted">${xs.map(l=>`${J.esc((RUNS.fabrics.find(f=>f.id===l.fabric_id)||{}).colour||l.fabric_label||'?')} ${pc(l)}`).join(' · ')}</span></span><span>${xs.reduce((a,l)=>a+pc(l),0)} pcs →</span></a>`; }).join('');
+  })()}</div>
+  <div class="sec"><h4>Notes</h4><div class="fg">${ta('changes','Notes + changes',s,3)}${ta('notes','Notes',s,2)}${s.feedback&&!FB(s).length?ta('feedback','Old feedback (from the sheet)',s,2):''}</div></div>`;
+  M.dropzone($('tpDz'),fs=>addTechpack(s,fs),{docs:true});
+  $('tpDz').onclick=()=>M.picker(fs=>addTechpack(s,fs),{accept:'.pdf,.ai,.eps,.xlsx,.docx,image/*'});
+  $('fbNew').onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('fbAdd').click(); } };
+  $('fbAdd').onclick=async()=>{ const t=$('fbNew').value.trim(); if(!t) return; s.feedback_items=[...FB(s),{id:M.uuid(),text:t,added:J.today(),status:'open'}]; await M.put('samples',s); await renderDrawer(); $('fbNew').focus(); };
   M.dropzone($('dz'),fs=>addPhotos(s,fs)); $('dz').addEventListener('click',e=>{ if(!e.target.closest('button')) M.picker(fs=>addPhotos(s,fs)); }); M.dropzone($('photos'),fs=>addPhotos(s,fs));
   $('pickRef').onclick=()=>M.picker(fs=>addPhotos(s,fs,'reference'));
   $('pickSample').onclick=()=>M.picker(fs=>addPhotos(s,fs,'sample'));
@@ -204,6 +244,13 @@ async function addPhotos(s,files,kind='sample'){
   s.images=[...(s.images||[]),...up.map(u=>({...u,kind}))];
   await M.put('samples',s); J.toast(`${up.length} photo${up.length>1?'s':''} added`);
   if(UI.open===s.id) renderDrawer(); render();
+}
+async function addTechpack(s,files){
+  if(!s) return; J.toast(`Uploading ${files.length} file${files.length>1?'s':''}…`);
+  const up=await M.upload(files,'techpacks/'+s.id,{docs:true}); if(!up.length) return;
+  s.techpack_files=[...(s.techpack_files||[]),...up.map(u=>({...u,added:J.today()}))];
+  if(!s.techpack_name) s.techpack_name=up[0].name.replace(/\.[a-z0-9]+$/i,'');
+  await M.put('samples',s); J.toast('Tech pack added'); if(UI.open===s.id) renderDrawer(); render();
 }
 function setupPicker(s){
   const box=$('picker'), q=$('swQ'), list=$('swList'); let hi=0, opts=[];
@@ -232,7 +279,7 @@ function nextItemNo(){
 }
 async function newSample(files){
   if(!UI.coll) return;
-  const s={id:M.uuid(),collection_id:UI.coll,item_no:nextItemNo(),name:'',techpack_status:'Not started yet',sample_status:'Not started yet',fabric_status:'Not Assigned',swatch_ids:[],images:[],sort:inColl().reduce((a,x)=>Math.max(a,x.sort??0),0)+1};
+  const s={id:M.uuid(),collection_id:UI.coll,item_no:nextItemNo(),name:'',techpack_status:'Not started yet',sample_status:'Not started yet',fabric_status:'Not Assigned',swatch_ids:[],images:[],techpack_files:[],feedback_items:[],sort:inColl().reduce((a,x)=>Math.max(a,x.sort??0),0)+1};
   await M.put('samples',s); UI.q=''; UI.status=''; UI.swatch=''; $('fSearch').value='';
   openDrawer(s.id); setTimeout(()=>$('dName').focus(),50);
   if(files&&files.length) addPhotos(s,files);
@@ -240,13 +287,19 @@ async function newSample(files){
 }
 
 // drawer events
-$('dBody').addEventListener('input',e=>{ const t=e.target, s=cur(); if(!s||!t.dataset.f) return; s[t.dataset.f]=t.type==='number'?(t.value===''?null:Math.round(+t.value)):t.value; save(s); });
+$('dBody').addEventListener('input',e=>{ const t=e.target, s=cur(); if(s&&t.dataset.fbtext){ const x=FB(s).find(y=>y.id===t.dataset.fbtext); if(x){ x.text=t.value; save(s); } return; } if(!s||!t.dataset.f) return; s[t.dataset.f]=t.type==='number'?(t.value===''?null:Math.round(+t.value)):t.value; save(s); });
 $('dName').oninput=e=>{ const s=cur(); s.name=e.target.value; save(s); };
 $('dNo').oninput=e=>{ const s=cur(); s.item_no=e.target.value; save(s); };
 $('dName').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); $('swQ')?.focus(); } };
 $('dBody').addEventListener('click',async e=>{
   const s=cur(); if(!s) return;
   const b=e.target.closest('button');
+  if(b&&b.dataset.fb){ const x=FB(s).find(y=>y.id===b.dataset.fb); x.status=b.dataset.to; if(x.status==='approved') x.approved_on=J.today(); if(x.status==='done') x.done_on=J.today(); if(x.status==='open'){ delete x.approved_on; } await M.put('samples',s); renderDrawer(); return; }
+  if(b&&b.dataset.fbdel){ if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='Tap again'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent='Remove'; } },2500); return; } s.feedback_items=FB(s).filter(y=>y.id!==b.dataset.fbdel); await M.put('samples',s); renderDrawer(); return; }
+  if(b&&b.dataset.tpview!==undefined){ M.openFile(s.techpack_files[+b.dataset.tpview]); return; }
+  if(b&&b.dataset.tpdl!==undefined){ M.openFile(s.techpack_files[+b.dataset.tpdl],true); return; }
+  if(b&&b.dataset.tprm!==undefined){ if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='?'; b.title='Tap again to remove'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent='×'; } },2500); return; }
+    const f=s.techpack_files[+b.dataset.tprm]; s.techpack_files=s.techpack_files.filter((_,i)=>i!==+b.dataset.tprm); await M.put('samples',s); if(!S().some(x=>(x.techpack_files||[]).some(y=>y.path===f.path))) M.remove([f.path]); renderDrawer(); return; }
   const cb=e.target.closest('.choice button');
   if(cb){ const wrap=cb.parentElement, f=wrap.dataset.choice, v=cb.dataset.v; s[f]=(s[f]===v&&wrap.dataset.clear==='1')?null:v; await M.put('samples',s);
     wrap.querySelectorAll('button').forEach(x=>{ x.className=x.dataset.v===s[f]?'on '+cls(x.dataset.v):''; }); return; }
@@ -265,7 +318,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('drawer').classL
 const step=d=>{ const l=visible(); const i=l.findIndex(x=>x.id===UI.open); const n=l[(i+d+l.length)%l.length]; if(n) openDrawer(n.id); };
 $('dPrev').onclick=()=>step(-1); $('dNext').onclick=()=>step(1);
 $('dAdd').onclick=()=>newSample();
-$('dDup').onclick=async()=>{ const s=cur(); const c={...JSON.parse(JSON.stringify(s)),id:M.uuid(),name:s.name+' (copy)',sort:(s.sort??0)+0.5}; delete c.created_at; await M.put('samples',c); openDrawer(c.id); J.toast('Copied – change the fabric or details'); render(); };
+$('dDup').onclick=async()=>{ const s=cur(); const c={...JSON.parse(JSON.stringify(s)),id:M.uuid(),name:s.name+' (copy)',sort:(s.sort??0)+0.5,feedback_items:[]}; delete c.created_at; await M.put('samples',c); openDrawer(c.id); J.toast('Copied – change the fabric or details'); render(); };
 $('dMove').onchange=async e=>{ const s=cur(); s.collection_id=e.target.value; await M.put('samples',s); UI.coll=s.collection_id; J.toast('Moved'); renderDrawer(); render(); };
 $('dDel').onclick=async()=>{ const b=$('dDel'); if(!b.dataset.sure){ b.dataset.sure=1; b.textContent='Tap again to delete'; setTimeout(()=>{delete b.dataset.sure; b.textContent='Delete';},3000); return; }
   const s=cur(); const paths=(s.images||[]).map(i=>i.path); await M.del('samples',s.id);
@@ -277,9 +330,12 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('button');
   if(b&&b.dataset.coll){ UI.coll=b.dataset.coll; UI.swatch=''; history.replaceState(null,'',`?c=${UI.coll}`); render(); return; }
   if(b&&b.id==='btnNewColl'){ openColl(null); return; }
+  if(b&&b.dataset.cols){ UI.cols=b.dataset.cols; try{localStorage.setItem('jawda.samples.cols',UI.cols);}catch(e){} render(); return; }
+  if(b&&b.dataset.tpopen){ const x=S().find(y=>y.id===b.dataset.tpopen); M.openFile(x.techpack_files[+b.dataset.i]); return; }
   if(b&&b.dataset.view){ UI.view=b.dataset.view; try{localStorage.setItem('jawda.samples.view',UI.view);}catch(e){} render(); return; }
   const o=e.target.closest('[data-open]'); if(o) openDrawer(o.dataset.open);
 });
+document.addEventListener('input',e=>{ const t=e.target; if(t.dataset.cell&&!t.closest('.drawer')){ const x=S().find(y=>y.id===t.dataset.id); x[t.dataset.cell]=t.dataset.cell==='pcs'?(t.value===''?null:Math.round(+t.value)):t.value; M.later('s'+x.id,()=>M.put('samples',x)); } });
 document.addEventListener('change',async e=>{ const t=e.target; if(t.dataset.set){ const s=S().find(x=>x.id===t.dataset.id); s[t.dataset.set]=t.value||null; t.className=cls(t.value); await M.put('samples',s); } });
 $('fSearch').oninput=e=>{ UI.q=e.target.value; render(); };
 $('fStatus').onchange=e=>{ UI.status=e.target.value; render(); };
@@ -297,12 +353,16 @@ $('cmSave').onclick=async()=>{ const name=$('cmName').value.trim(); if(!name){ J
 $('cmDel').onclick=async()=>{ const n=S().filter(s=>s.collection_id===editingColl.id).length; if(n){ J.toast(`Move or delete its ${n} samples first`); return; }
   await M.del('sample_collections',editingColl.id); UI.coll=null; $('collModal').classList.remove('on'); render(); };
 $('actEditColl').onclick=()=>openColl(C().find(c=>c.id===UI.coll));
-$('actRefresh').onclick=async()=>{ await M.load(['sample_collections','samples','swatches']); render(); if(UI.open) renderDrawer(); J.toast('Up to date'); };
+async function loadRuns(){
+  if(J.mode==='remote'){ const q=t=>J.sb.from(t).select('*'); const r=await Promise.all([q('pf_runs'),q('pf_lines'),q('pf_fabrics')]); if(!r.some(x=>x.error)) RUNS={runs:r[0].data,lines:r[1].data,fabrics:r[2].data}; }
+  else if(window.PF_TEST_SEED) RUNS={runs:PF_TEST_SEED.runs,lines:PF_TEST_SEED.lines,fabrics:PF_TEST_SEED.fabrics};
+}
+$('actRefresh').onclick=async()=>{ await M.load(['sample_collections','samples','swatches']); await loadRuns(); render(); if(UI.open) renderDrawer(); J.toast('Up to date'); };
 $('actCsv').onclick=()=>{ const c=C().find(x=>x.id===UI.coll); J.csv(`jawda-samples-${(c?.name||'').replace(/\W+/g,'-')}.csv`,['Item No','Item Name','Launch Group','Tech Pack Status','Sample Status','Fabric Status','Type','Sizing','Pieces','Detailing','Tech Pack','Tech Pack Link','Swatches','Fabric notes','Colours','Accessories','Accessories quantity','Feedback','Notes + Changes','Notes','Photos'],
-  inColl().map(s=>[s.item_no,s.name,s.launch_group,s.techpack_status,s.sample_status,s.fabric_status,s.type,s.sizing,s.pcs,s.detailing,s.techpack_name,s.techpack_link,(s.swatch_ids||[]).map(i=>sw(i)?.name).join('; '),s.fabric_note,s.colours,s.accessories,s.accessories_qty,s.feedback,s.changes,s.notes,(s.images||[]).length])); };
+  inColl().map(s=>[s.item_no,s.name,s.launch_group,s.techpack_status,s.sample_status,s.fabric_status,s.type,s.sizing,s.pcs,s.detailing,s.techpack_name,s.techpack_link,(s.swatch_ids||[]).map(i=>sw(i)?.name).join('; '),s.fabric_note,s.colours,s.accessories,s.accessories_qty,FB(s).map(x=>(x.status==='approved'?'[approved] ':x.status==='done'?'[changes made] ':'')+x.text).join(' | ')||s.feedback,s.changes,s.notes,(s.images||[]).length])); };
 
 J.boot(async()=>{
-  await M.load(['sample_collections','samples','swatches']);
+  await M.load(['sample_collections','samples','swatches']); await loadRuns();
   const p=new URLSearchParams(location.search); UI.coll=p.get('c');
   const sid=p.get('s'); const s=sid&&S().find(x=>x.id===sid); if(s) UI.coll=s.collection_id;
   await render(); if(s) openDrawer(s.id);

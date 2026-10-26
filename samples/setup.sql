@@ -92,3 +92,11 @@ create policy "team read media"   on storage.objects for select to authenticated
 create policy "team add media"    on storage.objects for insert to authenticated with check (bucket_id = 'jawda-media');
 create policy "team change media" on storage.objects for update to authenticated using (bucket_id = 'jawda-media');
 create policy "team remove media" on storage.objects for delete to authenticated using (bucket_id = 'jawda-media');
+
+-- Added 26 Oct 2026: tech pack files, feedback items with approvals, run lines linked to samples (safe to re-run)
+alter table public.samples add column if not exists techpack_files jsonb not null default '[]'::jsonb;   -- [{"path","name","size","type","added"}]
+alter table public.samples add column if not exists feedback_items jsonb not null default '[]'::jsonb;   -- [{"id","text","added","status":"open|done|approved","done_on","approved_on"}]
+alter table public.pf_lines add column if not exists sample_id uuid references public.samples(id) on delete set null;
+update storage.buckets set file_size_limit = 52428800,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/gif','image/heic','application/pdf','application/postscript','application/illustrator','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  where id = 'jawda-media';
